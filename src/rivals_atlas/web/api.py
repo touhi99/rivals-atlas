@@ -21,11 +21,13 @@ from rivals_atlas.ingest import fetch, inventory, meta
 from rivals_atlas.web import ask as ask_routes
 from rivals_atlas.web import insights as insights_routes
 from rivals_atlas.web import payloads
+from rivals_atlas.web import v1 as v1_routes
 from rivals_atlas.web.guard import require_app_header
 
 app = FastAPI(title="rivals-atlas")
 app.include_router(ask_routes.router)
 app.include_router(insights_routes.router)
+app.include_router(v1_routes.router)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
