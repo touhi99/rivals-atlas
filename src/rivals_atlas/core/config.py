@@ -12,6 +12,10 @@ def data_dir() -> Path:
     return d
 
 
+def db_path() -> Path:
+    return Path(os.environ.get("RIVALS_ATLAS_DB") or data_dir() / "rivals.db")
+
+
 def settings_path(base: Path | None = None) -> Path:
     return (base or data_dir()) / "settings.json"
 

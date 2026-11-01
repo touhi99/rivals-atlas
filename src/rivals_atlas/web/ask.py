@@ -1,15 +1,13 @@
-"""The Ask page's backend: one question runs the agents in a worker thread; the page polls for steps and the answer.
+"""The Ask tab's backend: one question runs the agents in a worker thread; the page polls for steps and the answer.
 
 Everything shown as a number comes from the Ledger (tool results and checked claims). The model's own words are sent
 separately and labelled unchecked.
 """
 from __future__ import annotations
 
-import os
 import threading
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -29,10 +27,6 @@ JOBS: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
 
 
-def _db_path() -> Path:
-    return Path(os.environ.get("RIVALS_ATLAS_DB") or config.data_dir() / "rivals.db")
-
-
 def _steps(ledger: agents.Ledger) -> dict[str, Any]:
     findings, verdicts = ledger.snapshot()
     return {
@@ -50,7 +44,7 @@ def _run(job_id: str, question: str) -> None:
     ledger: agents.Ledger = job["ledger"]
     try:
         base = config.data_dir()
-        ans = agents.ask_specialist(AGENT, question, llm.make_generator(), _db_path(), meta.load(base), ledger)
+        ans = agents.ask_specialist(AGENT, question, llm.make_generator(), config.db_path(), meta.load(base), ledger)
         job.update(state="done", framing=ans.framing, unverified=ans.unverified, model=llm.setting(base))
     except Exception as e:  # noqa: BLE001                                           # a model or network problem must reach the page
         job.update(state="error", error=f"{type(e).__name__}: {str(e)[:300]}")

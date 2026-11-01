@@ -20,12 +20,12 @@ dashboard, lets you explore with statistics, hero graphs, and lets you analyse c
 | **Patterns** | Results by weekday, hour and session, with an activity calendar |
 | **Squad** | Your regular teammates and how each party combination did |
 | **Explore** | Filter by map, role, bans, time of day or party, and see the result as a hero graph or a breakdown |
-| **Ask** | A chat with the knowledge-graph agent; every number comes from a query you can open and check |
+| **Agents** | **Ask**: a chat with the knowledge-graph agent, where every number comes from a query you can open and check. **Insights**: what the Coach and the Tilt guard found in the matches, each sentence next to the numbers it rests on |
 | **Data** | What is stored, and fetching match history |
 
 ## How it fits together
 
-![System architecture](docs/architecture.svg)
+![Architecture](docs/architecture.svg)
 
 More detail: [docs/how-it-works.md](docs/how-it-works.md).
 
@@ -60,9 +60,9 @@ by someone else, so please treat it kindly:
 
 If this tool or its data is used in another project, article or video, please credit rivalsmeta.com for the data and link to this repository, https://github.com/touhi99/rivals-atlas, for the tool.
 
-## The Ask page needs a model
+## The Agents page needs a model
 
-Ask needs an Anthropic API key, or Ollama or LM Studio running locally.
+The Agents page (Ask and Insights) needs an Anthropic API key, or Ollama or LM Studio running locally. The rest of the app works without a model.
 
 ```
 cp .env.example .env     # then set RIVALS_ATLAS_LLM and, for Anthropic, ANTHROPIC_API_KEY
@@ -75,6 +75,9 @@ cp .env.example .env     # then set RIVALS_ATLAS_LLM and, for Anthropic, ANTHROP
 | `lmstudio:<model>` | Any model loaded in [LM Studio](https://lmstudio.ai) |
 
 The model only writes one read-only query. The rows shown come straight from the data, and the model's own sentence is marked unchecked.
+
+Insights run the model too: when you press **Run now** on the Insights tab, and after that again after each fetch that finds new matches. That
+uses tokens, and with Anthropic the query results are sent to the API.
 
 ## Data
 

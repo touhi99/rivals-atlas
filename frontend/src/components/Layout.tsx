@@ -1,4 +1,4 @@
-import { BarChart3, Download, Grid3x3, Map as MapIcon, MessageSquare, Search, Swords, Users } from 'lucide-react'
+import { BarChart3, Bot, Download, Grid3x3, Map as MapIcon, Search, Swords, Users } from 'lucide-react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import FilterBar from '@/components/FilterBar'
@@ -21,7 +21,7 @@ const GROUPS = [
     { to: '/patterns', label: 'Patterns', icon: Grid3x3 },
     { to: '/squad', label: 'Squad', icon: Users },
     { to: '/explore', label: 'Explore', icon: Search },
-    { to: '/ask', label: 'Ask', icon: MessageSquare },
+    { to: '/agents', label: 'Agents', icon: Bot },
   ] },
   { label: 'Data', items: [{ to: '/data', label: 'Data', icon: Download }] },
 ]

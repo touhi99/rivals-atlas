@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 const STEPS = [
   { icon: Link2, title: 'Find the player page', text: 'Open rivalsmeta.com, search for the player and copy the address of the profile page. It ends with a number.' },
   { icon: Download, title: 'Fetch the match history', text: 'On the Data page paste the address, read the notice, tick the box and press Fetch. Ranked comes first; quick play is optional.' },
-  { icon: Sparkles, title: 'Explore', text: 'When the first fetch ends, every page fills in: rank journey, heroes, maps, patterns, squad, and the Ask chat.' },
+  { icon: Sparkles, title: 'Explore', text: 'When the first fetch ends, every page fills in: rank journey, heroes, maps, patterns, squad, and the Agents page.' },
 ]
 
 /** Shown instead of a page while nothing is stored yet. */

@@ -29,6 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     fe.add_argument("--yes", action="store_true", help="confirm you have read the notice")
     gr = sub.add_parser("graph", help="rebuild hero synergy and counter edges from stored matches")
     gr.add_argument("--ladybug", action="store_true", help="also (re)build the LadybugDB projection (data/graph.lbdb)")
+    sub.add_parser("insights", help="let the Coach and Tilt guard find what stands out in the matches (needs a model, see llm.py)")
     ask = sub.add_parser("ask", help="ask the agents a question about the stored matches (needs a model, see llm.py)")
     ask.add_argument("question")
     ask.add_argument("--agent", choices=["coordinator", "coach", "tilt_guard", "cartographer"], default="coordinator")
@@ -99,6 +100,21 @@ def cmd_ask(a: argparse.Namespace, base: Path) -> int:
     return 0
 
 
+def cmd_insights(a: argparse.Namespace, base: Path) -> int:
+    from rivals_atlas.agents import insights
+    data = insights.generate(config.db_path(), base, meta_mod.load(base))
+    print(f"[{data['model']}] {data['scope']}, {data['matches']} matches")
+    for o in data["observations"]:
+        print(f"\n- [{o['badge']}] {o['text']}")
+        for e in o["evidence"]:
+            print(f"    {e['label']}: " + (f"{e['rate']:.0%} ({e['wins']} wins in {e['n']}, range {e['lo']:.0%} to {e['hi']:.0%})" if e["rate"] is not None else f"n={e['n']}"))
+    if not data["observations"]:
+        print("\nNo observation survived the check.")
+    if data["dropped"]:
+        print(f"\n{len(data['dropped'])} dropped: " + "; ".join(dict.fromkeys(data["dropped"])))
+    return 0
+
+
 def cmd_serve(a: argparse.Namespace, base: Path) -> int:
     import uvicorn
     uvicorn.run("rivals_atlas.web.api:app", host="127.0.0.1", port=a.port, reload=a.reload,
@@ -107,7 +123,7 @@ def cmd_serve(a: argparse.Namespace, base: Path) -> int:
 
 
 COMMANDS: dict[str, Callable[[argparse.Namespace, Path], int]] = {
-    "import": cmd_import, "fetch": cmd_fetch, "graph": cmd_graph, "ask": cmd_ask,
+    "import": cmd_import, "fetch": cmd_fetch, "graph": cmd_graph, "ask": cmd_ask, "insights": cmd_insights,
     "serve": cmd_serve,
 }
 

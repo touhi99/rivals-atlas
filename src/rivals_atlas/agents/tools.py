@@ -77,6 +77,8 @@ _ARG_LABELS: dict[str, Callable[[Any], str]] = {
 
 def describe_args(args: dict[str, Any]) -> str:
     """Readable summary of a tool call's arguments, skipping unset ones and the default ranked mode."""
+    if args.get("season_from") is not None and args.get("season_from") == args.get("season_to"):
+        args = {k: v for k, v in args.items() if k not in ("season_from", "season_to")} | {"season": args["season_from"]}   # one season
     parts = [_ARG_LABELS.get(k, lambda x, k=k: f"{k} {x}")(v) for k, v in args.items()
              if v is not None and not (k == "mode" and v == 2) and k not in ("ban_state", "min_n", "banned")]
     if args.get("banned") is not None:

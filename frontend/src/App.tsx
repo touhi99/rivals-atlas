@@ -7,7 +7,7 @@ import PatternsPage from '@/pages/PatternsPage'
 import SquadPage from '@/pages/SquadPage'
 import DataPage from '@/pages/DataPage'
 import ExplorePage from '@/pages/ExplorePage'
-import AskPage from '@/pages/AskPage'
+import AgentsPage from '@/pages/AgentsPage'
 import MapsPage from '@/pages/MapsPage'
 
 export default function App() {
@@ -22,7 +22,8 @@ export default function App() {
         <Route path="/squad" element={<SquadPage />} />
         <Route path="/data" element={<DataPage />} />
         <Route path="/explore" element={<ExplorePage />} />
-        <Route path="/ask" element={<AskPage />} />
+        <Route path="/agents" element={<AgentsPage />} />
+        <Route path="/ask" element={<Navigate to="/agents" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </TooltipProvider>

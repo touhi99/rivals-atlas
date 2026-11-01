@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MapBanner } from '@/components/bits'
 import { Chip, Rich, useEntities } from '@/components/Entities'
-import Layout from '@/components/Layout'
 import { getJson, postJson, useApi, type AskCall, type AskInfo, type AskJob, type Shell } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -145,7 +144,7 @@ function loadChats(): Chat[] {
   try { return JSON.parse(localStorage.getItem(STORE) ?? '[]') as Chat[] } catch { return [] }
 }
 
-export default function AskPage() {
+export function AskChat() {
   const { data: info } = useApi<AskInfo>('ask', '')
   const { data: shell } = useApi<Shell>('shell', 'mode=2')
   const ent = useEntities(shell)
@@ -199,8 +198,8 @@ export default function AskPage() {
   const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) }
 
   return (
-    <Layout title="Ask" bar={false}>
-      <div className="grid min-h-[calc(100vh_-_130px)] gap-6 lg:grid-cols-[250px_1fr]">
+    <>
+      <div className="grid min-h-[calc(100vh_-_190px)] gap-6 lg:grid-cols-[250px_1fr]">
         <aside className="hidden flex-col gap-2 lg:flex">
           <button type="button" onClick={newChat} className="flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 text-sm font-medium hover:border-primary/60">
             <Plus className="size-4" />New chat
@@ -262,6 +261,6 @@ export default function AskPage() {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   )
 }

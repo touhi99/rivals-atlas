@@ -12,18 +12,20 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from rivals_atlas.agents import llm
+from rivals_atlas.agents import insights, llm
 from rivals_atlas.analysis import explore, ladders, patterns, stats
 from rivals_atlas.core import config, db, names
 from rivals_atlas.core.filters import Filter
 from rivals_atlas.graph import store as lbug_store
 from rivals_atlas.ingest import fetch, inventory, meta
 from rivals_atlas.web import ask as ask_routes
+from rivals_atlas.web import insights as insights_routes
 from rivals_atlas.web import payloads
 from rivals_atlas.web.guard import require_app_header
 
 app = FastAPI(title="rivals-atlas")
 app.include_router(ask_routes.router)
+app.include_router(insights_routes.router)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
@@ -133,7 +135,7 @@ def totals(hs: list[dict]) -> dict:
 
 
 def overview_data(con, f: Filter) -> dict:
-    """Everything the overview shows; one function so the original page and the React app cannot drift apart."""
+    """Everything the overview shows."""
     hs = stats.heroes(con, f)
     pts = [p for p in (stats.rank_journey(con, f) if f.mode in (0, 2) else []) if p["new_level"]]
     seasons, last = [], None
@@ -182,7 +184,7 @@ def _default_min(games: int, rel: str) -> int:
 
 @app.get("/api/ask")
 def ask_json():
-    """What the Ask page shows before the first question."""
+    """What the Ask tab shows before the first question."""
     return {"model": llm.setting(config.data_dir()),
             "examples": ["How many times did the player win and lose as Loki against Black Panther?",
                          "Which heroes do wins come with most when Loki is played in ranked?",
@@ -207,6 +209,8 @@ def _run_job(profile: str, mode: int, limit: int | None, pace: str) -> None:
     try:
         res = fetch.run(profile, mode, config.data_dir(), limit, progress=progress, pace=pace)
         JOB.update(state="done", result=res)
+        if res.get("fetched") and insights.load() is not None:   # only once insights were run by hand: the model is optional
+            insights_routes.start_job()
     except fetch.FetchError as e:
         JOB.update(state="error", error=str(e))
     except Exception as e:  # noqa: BLE001 - last resort so the page never shows a spinner forever
@@ -261,7 +265,7 @@ def spa(request: Request):
     return FileResponse(index)
 
 
-for _path in ("/", "/heroes", "/heroes/{hero_id}", "/maps", "/patterns", "/squad", "/data", "/explore", "/ask"):
+for _path in ("/", "/heroes", "/heroes/{hero_id}", "/maps", "/patterns", "/squad", "/data", "/explore", "/agents", "/ask"):
     app.get(_path, include_in_schema=False)(spa)
 
 

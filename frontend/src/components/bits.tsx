@@ -129,7 +129,7 @@ export function Spinner({ lines = 6 }: { lines?: number }) {
 
 /** One row of a range chart: the dot is the observed rate, the line is the 95% interval, the centre mark is 50%. */
 export function RangeRow({ label, s, domain = [0, 1], labelWidth = 110 }: {
-  label: string; s: { rate: number | null; lo: number; hi: number; n: number; enough: boolean }; domain?: [number, number]; labelWidth?: number
+  label: ReactNode; s: { rate: number | null; lo: number; hi: number; n: number; enough: boolean }; domain?: [number, number]; labelWidth?: number
 }) {
   const [a, b] = domain
   const at = (x: number) => `${Math.min(Math.max((x - a) / (b - a), 0), 1) * 100}%`

@@ -168,3 +168,24 @@ export type AskJob = {
   framing?: string; unverified?: string[]; model?: string
 }
 export type AskInfo = { model: string; examples: string[] }
+
+export type InsightRow = {
+  tool: string; label: string; n: number; wins: number | null
+  rate: number | null; lo: number; hi: number; enough: boolean
+  mode: string; season: string | null; earlier: boolean
+  hero?: { id: number; name: string; icon: string | null }
+  map?: { name: string; icon: string | null }
+  position?: number
+}
+
+export type Observation = { text: string; relation: string; badge: string; evidence: InsightRow[] }
+
+export type InsightsData = {
+  data: null | {
+    generated_at: number; model: string; scope: string; matches: number
+    observations: Observation[]; dropped: string[]
+    last_error?: string
+  }
+  stale: boolean
+  job: { state: 'idle' | 'running' | 'done' | 'error'; error?: string }
+}
