@@ -1,18 +1,14 @@
-# rivals-atlas
+# Rivals Atlas
 
 A personal hobby project for analysing your own Marvel Rivals matches. It fetches your match history from rivalsmeta.com, shows it in a
-dashboard, lets you explore with statiscits, hero graphs, and lets you analyse complex insights with a knowledge-graph agent about it.
+dashboard, lets you explore with statistics, hero graphs, and lets you analyse complex insights with a knowledge-graph agent about it.
 
-<p align="center"><img src="docs/screenshots/overview.webp" width="720" alt="Overview"></p>
+<p align="center"><img src="docs/demo.gif" width="720" alt="A 25 second tour of the app"></p>
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/hero.webp" alt="Hero page"></td>
     <td><img src="docs/screenshots/explore.webp" alt="Explore graph"></td>
-  </tr>
-  <tr>
     <td><img src="docs/screenshots/ask.webp" alt="Ask"></td>
-    <td><img src="docs/screenshots/patterns.webp" alt="Patterns"></td>
   </tr>
 </table>
 
