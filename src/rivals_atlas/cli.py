@@ -1,0 +1,118 @@
+"""Command line: import raw files, fetch from the data site, serve the dashboard, answer questions."""
+from __future__ import annotations
+
+import argparse
+import os
+import sqlite3
+import time
+from collections.abc import Callable
+from pathlib import Path
+
+from rivals_atlas.core import config, db
+from rivals_atlas.graph import knowledge
+from rivals_atlas.graph import network as graph
+from rivals_atlas.graph import store as lbug_store
+from rivals_atlas.ingest import fetch
+from rivals_atlas.ingest import meta as meta_mod
+from rivals_atlas.ingest.importer import import_folder
+
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(prog="rivals-atlas")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("import", help="read data/raw/{matches,history} into the database")
+    fe = sub.add_parser("fetch", help="download match history from rivalsmeta (opt-in) and import it")
+    fe.add_argument("--profile", help="profile id (the number in the player page address); saved for next time")
+    fe.add_argument("--mode", type=int, default=2, help="2 ranked, 1 quick play")
+    fe.add_argument("--limit", type=int, default=None, help="at most this many new match documents")
+    fe.add_argument("--pace", choices=["normal", "gentle"], default="gentle", help="gentle (default) = one request every 3 seconds, normal = one per second")
+    fe.add_argument("--yes", action="store_true", help="confirm you have read the notice")
+    gr = sub.add_parser("graph", help="rebuild hero synergy and counter edges from stored matches")
+    gr.add_argument("--ladybug", action="store_true", help="also (re)build the LadybugDB projection (data/graph.lbdb)")
+    ask = sub.add_parser("ask", help="ask the agents a question about the stored matches (needs a model, see llm.py)")
+    ask.add_argument("question")
+    ask.add_argument("--agent", choices=["coordinator", "coach", "tilt_guard", "cartographer"], default="coordinator")
+    sv = sub.add_parser("serve", help="start the dashboard")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--reload", action="store_true", help="development: restart on code changes")
+    return ap
+
+
+def cmd_import(a: argparse.Namespace, base: Path) -> int:
+    con = db.connect(base / "rivals.db")
+    rep = import_folder(con, base / "raw", os.environ.get("RIVALS_ATLAS_SELF") or None)
+    print("\n".join(rep.lines()))
+    print(f"{graph.build(con)} graph edges rebuilt")
+    if m := meta_mod.load(base):
+        print(f"{knowledge.load_meta(con, m)} team-up facts loaded")
+    build_ladybug(con, base)
+    return 0
+
+
+def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
+    st = config.load_settings(base)
+    profile = fetch.parse_profile(a.profile) or st.get("profile_id")
+    if not profile:
+        print("Give --profile with the address of the player's page, or the number at its end.")
+        return 2
+    if not (a.yes or st.get("consent_at")):
+        print(fetch.NOTICE)
+        print("\nRun again with --yes to confirm.")
+        return 2
+    config.save_settings({"profile_id": str(profile), "consent_at": st.get("consent_at") or time.time()}, base)
+    try:
+        res = fetch.run(str(profile), a.mode, base, a.limit, pace=a.pace,
+                        progress=lambda p: print(f"[{p['stage']}] {p['message']}"))
+    except fetch.FetchError as e:
+        print(f"Stopped: {e}")
+        return 1
+    print(res)
+    return 0
+
+
+def build_ladybug(con: sqlite3.Connection, base: Path) -> None:
+    counts = lbug_store.rebuild(con, base / lbug_store.GRAPH_FILE, meta_mod.load(base))
+    print(f"LadybugDB graph rebuilt: {counts}")
+
+
+def cmd_graph(a: argparse.Namespace, base: Path) -> int:
+    con = db.connect(base / "rivals.db")
+    print(f"{graph.build(con)} edges")
+    if a.ladybug:
+        build_ladybug(con, base)
+    return 0
+
+
+def cmd_ask(a: argparse.Namespace, base: Path) -> int:
+    from rivals_atlas import agents
+    from rivals_atlas.agents import llm
+    db_path = base / "rivals.db"
+    if a.agent == "coordinator":
+        ans = agents.ask(a.question, llm.generators(), db_path, meta_mod.load(base))
+    else:
+        ans = agents.ask_specialist(a.agent, a.question, llm.make_generator(), db_path, meta_mod.load(base))
+    print(f"[{llm.setting(base)}]\n{ans.report}")
+    if ans.framing:
+        print(f"\n(unchecked model text) {ans.framing}")
+    if ans.unverified:
+        print(f"(numbers in that text that no query returned: {', '.join(ans.unverified)})")
+    return 0
+
+
+def cmd_serve(a: argparse.Namespace, base: Path) -> int:
+    import uvicorn
+    uvicorn.run("rivals_atlas.web.api:app", host="127.0.0.1", port=a.port, reload=a.reload,
+                reload_dirs=[str(Path(__file__).parent)] if a.reload else None)
+    return 0
+
+
+COMMANDS: dict[str, Callable[[argparse.Namespace, Path], int]] = {
+    "import": cmd_import, "fetch": cmd_fetch, "graph": cmd_graph, "ask": cmd_ask,
+    "serve": cmd_serve,
+}
+
+
+def main(argv: list[str] | None = None) -> int:
+    config.load_env()                      # .env in the working directory: model key and settings, never printed
+    a = build_parser().parse_args(argv)
+    return COMMANDS[a.cmd](a, config.data_dir())

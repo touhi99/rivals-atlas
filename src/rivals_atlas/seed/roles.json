@@ -1,0 +1,226 @@
+{
+ "1011": {
+  "hero": "Hulk",
+  "role": "Vanguard"
+ },
+ "1014": {
+  "hero": "The Punisher",
+  "role": "Duelist"
+ },
+ "1015": {
+  "hero": "Storm",
+  "role": "Duelist"
+ },
+ "1016": {
+  "hero": "Loki",
+  "role": "Strategist"
+ },
+ "1017": {
+  "hero": "Human Torch",
+  "role": "Duelist"
+ },
+ "1018": {
+  "hero": "Doctor Strange",
+  "role": "Vanguard"
+ },
+ "1020": {
+  "hero": "Mantis",
+  "role": "Strategist"
+ },
+ "1021": {
+  "hero": "Hawkeye",
+  "role": "Duelist"
+ },
+ "1022": {
+  "hero": "Captain America",
+  "role": "Vanguard"
+ },
+ "1023": {
+  "hero": "Rocket Raccoon",
+  "role": "Strategist"
+ },
+ "1024": {
+  "hero": "Hela",
+  "role": "Duelist"
+ },
+ "1025": {
+  "hero": "Cloak & Dagger",
+  "role": "Strategist"
+ },
+ "1026": {
+  "hero": "Black Panther",
+  "role": "Duelist"
+ },
+ "1027": {
+  "hero": "Groot",
+  "role": "Vanguard"
+ },
+ "1028": {
+  "hero": "Ultron",
+  "role": "Strategist"
+ },
+ "1029": {
+  "hero": "Magik",
+  "role": "Duelist"
+ },
+ "1030": {
+  "hero": "Moon Knight",
+  "role": "Duelist"
+ },
+ "1031": {
+  "hero": "Luna Snow",
+  "role": "Strategist"
+ },
+ "1032": {
+  "hero": "Squirrel Girl",
+  "role": "Duelist"
+ },
+ "1033": {
+  "hero": "Black Widow",
+  "role": "Duelist"
+ },
+ "1034": {
+  "hero": "Iron Man",
+  "role": "Duelist"
+ },
+ "1035": {
+  "hero": "Venom",
+  "role": "Vanguard"
+ },
+ "1036": {
+  "hero": "Spider-man",
+  "role": "Duelist"
+ },
+ "1037": {
+  "hero": "Magneto",
+  "role": "Vanguard"
+ },
+ "1038": {
+  "hero": "Scarlet Witch",
+  "role": "Duelist"
+ },
+ "1039": {
+  "hero": "Thor",
+  "role": "Vanguard"
+ },
+ "1040": {
+  "hero": "Mister Fantastic",
+  "role": "Duelist"
+ },
+ "1041": {
+  "hero": "Winter Soldier",
+  "role": "Duelist"
+ },
+ "1042": {
+  "hero": "Peni Parker",
+  "role": "Vanguard"
+ },
+ "1043": {
+  "hero": "Star-lord",
+  "role": "Duelist"
+ },
+ "1044": {
+  "hero": "Blade",
+  "role": "Duelist"
+ },
+ "1045": {
+  "hero": "Namor",
+  "role": "Duelist"
+ },
+ "1046": {
+  "hero": "Adam Warlock",
+  "role": "Strategist"
+ },
+ "1047": {
+  "hero": "Jeff The Land Shark",
+  "role": "Strategist"
+ },
+ "1048": {
+  "hero": "Psylocke",
+  "role": "Duelist"
+ },
+ "1049": {
+  "hero": "Wolverine",
+  "role": "Duelist"
+ },
+ "1050": {
+  "hero": "Invisible Woman",
+  "role": "Strategist"
+ },
+ "1051": {
+  "hero": "The Thing",
+  "role": "Vanguard"
+ },
+ "1052": {
+  "hero": "Iron Fist",
+  "role": "Duelist"
+ },
+ "1053": {
+  "hero": "Emma Frost",
+  "role": "Vanguard"
+ },
+ "1054": {
+  "hero": "Phoenix",
+  "role": "Duelist"
+ },
+ "1055": {
+  "hero": "Daredevil",
+  "role": "Duelist"
+ },
+ "1056": {
+  "hero": "Angela",
+  "role": "Vanguard"
+ },
+ "1058": {
+  "hero": "Gambit",
+  "role": "Strategist"
+ },
+ "1059": {
+  "hero": "Elsa Bloodstone",
+  "role": "Duelist"
+ },
+ "1060": {
+  "hero": "White Fox",
+  "role": "Strategist"
+ },
+ "1061": {
+  "hero": "Black Cat",
+  "role": "Duelist"
+ },
+ "1062": {
+  "hero": "Devil Dinosaur",
+  "role": "Vanguard"
+ },
+ "1063": {
+  "hero": "Cyclops",
+  "role": "Duelist"
+ },
+ "1064": {
+  "hero": "Jubilee",
+  "role": "Strategist"
+ },
+ "1065": {
+  "hero": "Rogue",
+  "role": "Vanguard"
+ },
+ "1066": {
+  "hero": "The Hood",
+  "role": "Duelist"
+ },
+ "1067": {
+  "hero": "Gorr The God Butcher",
+  "role": "Duelist"
+ },
+ "10571": {
+  "hero": "Deadpool (Vanguard)",
+  "role": "Vanguard"
+ },
+ "10572": {
+  "hero": "Deadpool (Duelist)",
+  "role": "Duelist"
+ },
+ "10573": {
+  "hero": "Deadpool (Strategist)",
+  "role": "Strategist"
+ }
+}

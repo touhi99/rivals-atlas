@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 818" width="1100" height="818" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8fb0a2"/></marker>
+<style>.bt{font-size:13px;font-weight:700;fill:#fff}.bl{font-size:12px;fill:#cfe3da}.col{font-size:11px;font-weight:700;letter-spacing:.14em}.ti{font-size:21px;font-weight:700;fill:#f1faf6}.su{font-size:12.5px;fill:#8fb0a2}</style></defs>
+<rect width="1100" height="818" rx="16" fill="#07110e" stroke="#163026"/>
+<text x="28" y="40" class="ti">rivals-atlas · system architecture</text>
+<text x="28" y="62" class="su">Local-first: fetch once, keep the data on this machine, analyse it, and answer questions from it.</text>
+<text x="28" y="100" class="col" style="fill:#8fb0a2">SOURCE</text>
+<text x="236" y="100" class="col" style="fill:#8fb0a2">INGEST</text>
+<text x="524" y="100" class="col" style="fill:#8fb0a2">STORE</text>
+<text x="812" y="100" class="col" style="fill:#8fb0a2">ANALYSE AND SERVE</text>
+<rect x="28" y="112" width="170" height="116" rx="10" fill="#10201a" stroke="#64748b" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M28 142 V122 Q28 112 38 112 H188 Q198 112 198 122 V142 Z" fill="#64748b" fill-opacity=".92"/>
+<text x="42" y="132" class="bt">rivalsmeta.com</text>
+<text x="42" y="164" class="bl">Public JSON endpoints</text>
+<text x="42" y="180" class="bl">of one player&#x27;s profile:</text>
+<text x="42" y="196" class="bl">match history and</text>
+<text x="42" y="212" class="bl">matches</text>
+<rect x="236" y="112" width="250" height="100" rx="10" fill="#10201a" stroke="#10b981" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M236 142 V122 Q236 112 246 112 H476 Q486 112 486 122 V142 Z" fill="#10b981" fill-opacity=".92"/>
+<text x="250" y="132" class="bt">Fetcher</text>
+<text x="250" y="164" class="bl">One request every 3 seconds,</text>
+<text x="250" y="180" class="bl">resumable, never retried, stops at the</text>
+<text x="250" y="196" class="bl">first refusal. Ranked first.</text>
+<path d="M361 212 V236" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="236" y="236" width="250" height="100" rx="10" fill="#10201a" stroke="#10b981" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M236 266 V246 Q236 236 246 236 H476 Q486 236 486 246 V266 Z" fill="#10b981" fill-opacity=".92"/>
+<text x="250" y="256" class="bt">data/raw</text>
+<text x="250" y="288" class="bl">Match JSON kept as received, so</text>
+<text x="250" y="304" class="bl">everything below can be rebuilt from</text>
+<text x="250" y="320" class="bl">it in seconds.</text>
+<path d="M361 336 V360" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="236" y="360" width="250" height="100" rx="10" fill="#10201a" stroke="#10b981" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M236 390 V370 Q236 360 246 360 H476 Q486 360 486 370 V390 Z" fill="#10b981" fill-opacity=".92"/>
+<text x="250" y="380" class="bt">Parser and importer</text>
+<text x="250" y="412" class="bl">Checks the document shape,</text>
+<text x="250" y="428" class="bl">normalises players, heroes, bans and</text>
+<text x="250" y="444" class="bl">ranks, infers seasons.</text>
+<path d="M198 162.0 H236" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="524" y="112" width="250" height="100" rx="10" fill="#10201a" stroke="#0d9488" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M524 142 V122 Q524 112 534 112 H764 Q774 112 774 122 V142 Z" fill="#0d9488" fill-opacity=".92"/>
+<text x="538" y="132" class="bt">SQLite  (rivals.db)</text>
+<text x="538" y="164" class="bl">matches, match_players, ban_picks,</text>
+<text x="538" y="180" class="bl">hero lines. Derived: hero-pair edges,</text>
+<text x="538" y="196" class="bl">team-up facts.</text>
+<path d="M649 212 V236" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="524" y="236" width="250" height="116" rx="10" fill="#10201a" stroke="#0d9488" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M524 266 V246 Q524 236 534 236 H764 Q774 236 774 246 V266 Z" fill="#0d9488" fill-opacity=".92"/>
+<text x="538" y="256" class="bt">Graph file  (LadybugDB)</text>
+<text x="538" y="288" class="bl">Property graph queried with Cypher:</text>
+<text x="538" y="304" class="bl">Match, Line, Hero, Map, Season,</text>
+<text x="538" y="320" class="bl">TeamUp, with composition, session</text>
+<text x="538" y="336" class="bl">and rank-change properties.</text>
+<path d="M486 410.0 H505 V162.0 H524" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="812" y="112" width="260" height="100" rx="10" fill="#10201a" stroke="#65a30d" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M812 142 V122 Q812 112 822 112 H1062 Q1072 112 1072 122 V142 Z" fill="#65a30d" fill-opacity=".92"/>
+<text x="826" y="132" class="bt">core/queries.py</text>
+<text x="826" y="164" class="bl">Every SQL statement, parameterised.</text>
+<text x="826" y="180" class="bl">The web app opens the database</text>
+<text x="826" y="196" class="bl">read-only.</text>
+<path d="M942 212 V236" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="812" y="236" width="260" height="116" rx="10" fill="#10201a" stroke="#65a30d" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M812 266 V246 Q812 236 822 236 H1062 Q1072 236 1072 246 V266 Z" fill="#65a30d" fill-opacity=".92"/>
+<text x="826" y="256" class="bt">analysis/</text>
+<text x="826" y="288" class="bl">Win rates with Wilson intervals,</text>
+<text x="826" y="304" class="bl">findings corrected with</text>
+<text x="826" y="320" class="bl">Benjamini-Hochberg, patterns, Explore</text>
+<text x="826" y="336" class="bl">and the hero-pair lens.</text>
+<path d="M942 352 V376" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="812" y="376" width="260" height="100" rx="10" fill="#10201a" stroke="#65a30d" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M812 406 V386 Q812 376 822 376 H1062 Q1072 376 1072 386 V406 Z" fill="#65a30d" fill-opacity=".92"/>
+<text x="826" y="396" class="bt">FastAPI + React app</text>
+<text x="826" y="428" class="bl">JSON at /api/&lt;page&gt;, one page shell.</text>
+<text x="826" y="444" class="bl">Vite, TypeScript, Tailwind, shadcn/ui,</text>
+<text x="826" y="460" class="bl">Recharts, Cytoscape.</text>
+<path d="M774 162.0 H793 V162.0 H812" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<path d="M774 294.0 H793 V294.0 H812" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="28" y="516" width="1044" height="292" rx="14" fill="#0b1713" stroke="#7c2d12" stroke-width="1.4"/>
+<text x="46" y="544" class="col" style="fill:#fb923c">ASK  ·  text-to-Cypher over the knowledge graph (graph retrieval, no vector store)</text>
+<rect x="44" y="560" width="148" height="148" rx="10" fill="#10201a" stroke="#f97316" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M44 590 V570 Q44 560 54 560 H182 Q192 560 192 570 V590 Z" fill="#f97316" fill-opacity=".92"/>
+<text x="58" y="580" class="bt">Question</text>
+<text x="58" y="612" class="bl">Typed in the chat</text>
+<text x="58" y="628" class="bl">page.</text>
+<rect x="217" y="560" width="148" height="148" rx="10" fill="#10201a" stroke="#f97316" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M217 590 V570 Q217 560 227 560 H355 Q365 560 365 570 V590 Z" fill="#f97316" fill-opacity=".92"/>
+<text x="231" y="580" class="bt">Haystack agent</text>
+<text x="231" y="612" class="bl">The Cartographer;</text>
+<text x="231" y="628" class="bl">Coordinator, Coach</text>
+<text x="231" y="644" class="bl">and Tilt guard are</text>
+<text x="231" y="660" class="bl">the other agents.</text>
+<text x="231" y="676" class="bl">Typed tools, 12-step</text>
+<text x="231" y="692" class="bl">cap.</text>
+<path d="M194 634.0 H215" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="390" y="560" width="148" height="148" rx="10" fill="#10201a" stroke="#f97316" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M390 590 V570 Q390 560 400 560 H528 Q538 560 538 570 V590 Z" fill="#f97316" fill-opacity=".92"/>
+<text x="404" y="580" class="bt">LLM</text>
+<text x="404" y="612" class="bl">Anthropic, Ollama</text>
+<text x="404" y="628" class="bl">or LM Studio. Sees</text>
+<text x="404" y="644" class="bl">the graph schema</text>
+<text x="404" y="660" class="bl">and the name lists,</text>
+<text x="404" y="676" class="bl">writes ONE Cypher</text>
+<text x="404" y="692" class="bl">query.</text>
+<path d="M367 634.0 H388" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="563" y="560" width="148" height="148" rx="10" fill="#10201a" stroke="#f97316" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M563 590 V570 Q563 560 573 560 H701 Q711 560 711 570 V590 Z" fill="#f97316" fill-opacity=".92"/>
+<text x="577" y="580" class="bt">Guard</text>
+<text x="577" y="612" class="bl">One read</text>
+<text x="577" y="628" class="bl">statement, on a</text>
+<text x="577" y="644" class="bl">read-only database,</text>
+<text x="577" y="660" class="bl">5 second limit, 200</text>
+<text x="577" y="676" class="bl">row cap.</text>
+<path d="M540 634.0 H561" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="736" y="560" width="148" height="148" rx="10" fill="#10201a" stroke="#0d9488" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M736 590 V570 Q736 560 746 560 H874 Q884 560 884 570 V590 Z" fill="#0d9488" fill-opacity=".92"/>
+<text x="750" y="580" class="bt">LadybugDB</text>
+<text x="750" y="612" class="bl">Runs the query on</text>
+<text x="750" y="628" class="bl">the graph file.</text>
+<path d="M713 634.0 H734" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="909" y="560" width="148" height="148" rx="10" fill="#10201a" stroke="#65a30d" stroke-opacity=".75" stroke-width="1.4"/>
+<path d="M909 590 V570 Q909 560 919 560 H1047 Q1057 560 1057 570 V590 Z" fill="#65a30d" fill-opacity=".92"/>
+<text x="923" y="580" class="bt">Chat page</text>
+<text x="923" y="612" class="bl">Rows shown as a</text>
+<text x="923" y="628" class="bl">table straight from</text>
+<text x="923" y="644" class="bl">the data.</text>
+<path d="M886 634.0 H907" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)"/>
+<rect x="44" y="730" width="1012" height="64" rx="10" fill="#10201a" stroke="#7c2d12" stroke-dasharray="5 4"/>
+<text x="60" y="754" class="bl" style="font-weight:700;fill:#f1faf6">Evidence checker</text>
+<text x="60" y="774" class="bl">Every claim is re-run against SQLite; a number that differs is deleted. Numbers in the model&#x27;s own sentence that no query returned are listed as unverified. The model</text>
+<text x="60" y="790" class="bl">never supplies a number.</text>
+<path d="M649 352 V516" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#a)" stroke-dasharray="5 4"/>
+<text x="659" y="508" class="bl" style="fill:#8fb0a2;font-size:11px">graph file feeds Ask</text>
+</svg>

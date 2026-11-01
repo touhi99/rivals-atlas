@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.db
+*.db-*
+data/
+.env
+.DS_Store
+frontend/node_modules/
+
+# the web app is built from frontend/ (scripts/setup.sh); the compiled files are not stored in git
+src/rivals_atlas/web/ui/
