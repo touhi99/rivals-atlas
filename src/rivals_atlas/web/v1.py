@@ -9,8 +9,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
-from rivals_atlas.core import names, queries
+from rivals_atlas.core import config, names, queries
 from rivals_atlas.core.filters import Filter
+from rivals_atlas.ingest import meta
 
 router = APIRouter(prefix="/api/v1")
 MAX_LIMIT = 1000
@@ -75,14 +76,43 @@ def matches(since: int | None = Query(None, description="unix seconds; only matc
 
 @router.get("/ranks")
 def ranks(mode: int = 2, con: sqlite3.Connection = Con) -> dict[str, Any]:
-    """Rank points after each match, plus where every season ended."""
+    """Where every season ended, and its highest point."""
     pts = queries.rank_points(con, Filter(mode=mode))
     last: dict[int, Any] = {}
+    high: dict[int, Any] = {}
     for r in pts:
         last[r["season"]] = r
+        if r["season"] not in high or r["new_score"] > high[r["season"]]["new_score"]:
+            high[r["season"]] = r
     return {"mode_id": mode, "seasons": [
         {"season": s, "label": names.season_label(s), "rank_score": r["new_score"], "rank": names.tier_name(r["new_level"]),
-         "ended_at": _iso(r["played_at"])} for s, r in sorted(last.items(), key=lambda kv: (kv[0] is None, kv[0]))]}
+         "ended_at": _iso(r["played_at"]), "high_score": high[s]["new_score"], "high_rank": names.tier_name(high[s]["new_level"])}
+        for s, r in sorted(last.items(), key=lambda kv: (kv[0] is None, kv[0]))]}
+
+
+@router.get("/catalog")
+def catalog() -> dict[str, Any]:
+    """Every known hero with its name, role and portrait link (the link is empty when images are switched off)."""
+    return {"heroes": [_hero(int(h)) for h in sorted(names._heroes(), key=int)]}
+
+
+def _hero(hid: int) -> dict[str, Any]:
+    return {"id": hid, "hero": names.hero_name(hid), "role": names.role_name(hid), "icon_url": names.hero_icon(hid)}
+
+
+@router.get("/meta")
+def hero_meta() -> dict[str, Any]:
+    """The site's hero meta as last stored: pick, win and ban rate per hero and rank group, and team-up win rates.
+    Empty (`available: false`) until a fetch has read it."""
+    m = meta.load(config.data_dir())
+    if not m:
+        return {"available": False}
+    stamp = m.get("updated_at")
+    return {"available": True, "season": m.get("season"), "season_label": names.season_label(m["season"]) if m.get("season") else None,
+            "ranks": m["ranks"], "updated_at": _iso(stamp) if isinstance(stamp, int | float) else None,
+            "fetched_at": _iso(m.get("fetched_at")),
+            "heroes": [{**_hero(h["id"]), "by_rank": h["by_rank"]} for h in m["heroes"]],
+            "teamups": [{**t, "heroes": [_hero(x) for x in t["heroes"]]} for t in m["teamups"]]}
 
 
 @router.get("/heroes")
