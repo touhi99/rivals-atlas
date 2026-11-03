@@ -73,6 +73,24 @@ def teammates(con: sqlite3.Connection, f: Filter, min_games: int) -> Rows:
         [*a, min_games]).fetchall()
 
 
+def matchup_rows(con: sqlite3.Connection, f: Filter) -> Rows:
+    """(match, result, enemy hero) for the tracked player's decided matches, one row per hero on the other side."""
+    c, a = f.cond()
+    return con.execute(
+        "SELECT p.match_uid uid, p.result, o.hero_id enemy FROM match_players p JOIN match_players o "
+        "ON o.match_uid=p.match_uid AND o.camp!=p.camp JOIN matches m ON m.match_uid=p.match_uid "
+        f"WHERE p.is_self=1 AND p.result IN ('win','loss') AND o.hero_id > 0 AND {c}", a).fetchall()
+
+
+def resolve_player(con: sqlite3.Connection, prefix: str) -> str | None:
+    """The one teammate id that starts with `prefix` (at least 4 characters), else None."""
+    if len(prefix) < 4:
+        return None
+    hits = [r[0] for r in con.execute(
+        "SELECT DISTINCT player_id FROM match_players WHERE is_self=0 AND player_id LIKE ? LIMIT 2", (prefix.replace("%", "") + "%",))]
+    return hits[0] if len(hits) == 1 else None
+
+
 def own_results(con: sqlite3.Connection, f: Filter) -> Rows:
     c, a = f.cond()
     return con.execute(

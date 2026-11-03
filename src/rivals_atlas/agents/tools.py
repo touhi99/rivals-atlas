@@ -67,7 +67,7 @@ class Finding:
 
 _ARG_LABELS: dict[str, Callable[[Any], str]] = {
     "hero": lambda v: names.hero_name(v), "a": lambda v: names.hero_name(v), "b": lambda v: names.hero_name(v),
-    "other": lambda v: "with " + names.hero_name(v),
+    "other": lambda v: "with " + names.hero_name(v), "enemy": lambda v: "against " + names.hero_name(v),
     "map_id": lambda v: names.map_name(v), "role": lambda v: names.ROLES.get(v, "role ?"),
     "mode": lambda v: stats.MODES.get(v, f"mode {v}"), "position": lambda v: f"game {v} in a session",
     "side": lambda v: f"{v} side", "session_pos": lambda v: f"game {v} in a session", "season": lambda v: names.season_label(v),
@@ -236,6 +236,50 @@ def comp_stats(con: sqlite3.Connection, side: str = "own", mode: int = 2, hero: 
     return f
 
 
+def squad_stats(con: sqlite3.Connection, teammate: str, present: bool = True, mode: int = 2, season_from: int | None = None,
+                season_to: int | None = None, hero: int | None = None, map_id: int | None = None) -> Finding:
+    """The tracked player's results in matches where a regular teammate was on the same side (present=true) or was not
+    (present=false). `teammate` is the id or the first characters of it, from the list of regular teammates. Add hero or map_id to
+    look at one hero or map."""
+    args: dict[str, Any] = {"teammate": teammate, "present": present, "mode": mode, "season_from": season_from,
+                            "season_to": season_to, "hero": hero, "map_id": map_id}
+    pid = queries.resolve_player(con, teammate)
+    if pid is None:
+        raise ValueError("teammate must be the first characters (at least 4) of exactly one teammate id")
+    f = _filter(mode, season_from, season_to, hero, map_id)
+    with_him = {r["uid"] for r in queries.teammates_present(con, f, [pid])}
+    rows = [r for r in queries.own_results(con, f) if r["result"] in ("win", "loss") and (r["uid"] in with_him) == present]
+    return _rate_finding("squad_stats", args, sum(r["result"] == "win" for r in rows), sum(r["result"] == "loss" for r in rows),
+                         [r["uid"] for r in rows], teammate=names.player_label(con, pid))
+
+
+def matchup_stats(con: sqlite3.Connection, enemy: int, mode: int = 2, season_from: int | None = None, season_to: int | None = None,
+                  hero: int | None = None, map_id: int | None = None) -> Finding:
+    """The tracked player's results in matches where `enemy` (a hero id) was on the other side. Add hero to look only at
+    matches where the tracked player played that hero, or map_id for one map."""
+    args: dict[str, Any] = {"enemy": enemy, "mode": mode, "season_from": season_from, "season_to": season_to, "hero": hero,
+                            "map_id": map_id}
+    rows = [r for r in queries.matchup_rows(con, _filter(mode, season_from, season_to, hero, map_id)) if r["enemy"] == enemy]
+    return _rate_finding("matchup_stats", args, sum(r["result"] == "win" for r in rows), sum(r["result"] == "loss" for r in rows),
+                         sorted({r["uid"] for r in rows}), enemy=names.hero_name(enemy))
+
+
+def matchup_table(con: sqlite3.Connection, mode: int = 2, season_from: int | None = None, season_to: int | None = None,
+                  hero: int | None = None, map_id: int | None = None, min_n: int = 10) -> Finding:
+    """Win rate of the tracked player against each enemy hero (when that hero was on the other side), for heroes met in at
+    least min_n decided games, most met first. Use it to find candidates, then check one with matchup_stats."""
+    args: dict[str, Any] = {"mode": mode, "season_from": season_from, "season_to": season_to, "hero": hero, "map_id": map_id,
+                            "min_n": min_n}
+    tally: dict[int, list[int]] = {}
+    for r in queries.matchup_rows(con, _filter(mode, season_from, season_to, hero, map_id)):
+        t = tally.setdefault(r["enemy"], [0, 0])
+        t[r["result"] != "win"] += 1
+    items = sorted(({"hero_id": h, "hero": names.hero_name(h), **stats.rate(w, lo_)} for h, (w, lo_) in tally.items()
+                    if w + lo_ >= max(min_n, 1)),
+                   key=lambda x: -x["n"])
+    return Finding("matchup_table", args, len(items), enough=bool(items), items=items)
+
+
 # third field: True = higher is better, False = lower is better, None = neither (shown without a ranking)
 BENCH_METRICS = (("damage", "damage dealt", True), ("heal", "healing", True), ("taken", "damage taken", None),
                  ("k", "kills", True), ("d", "deaths", False), ("a", "assists", True), ("dmg10", "damage per 10 minutes", True))
@@ -331,7 +375,8 @@ def graph_path(con: sqlite3.Connection, a: int, b: int, rel: str = "SYNERGY", mo
 
 
 TOOLS: dict[str, Callable[..., Finding]] = {f.__name__: f for f in (
-    hero_stats, map_stats, session_stats, rank_journey, compare_to_meta, match_lookup, graph_neighbors, graph_path, graph_pattern, cypher_query, comp_stats, hero_benchmark)}
+    hero_stats, map_stats, session_stats, rank_journey, compare_to_meta, match_lookup, graph_neighbors, graph_path, graph_pattern, cypher_query, comp_stats, hero_benchmark,
+    squad_stats, matchup_stats, matchup_table)}
 
 
 def run(con: sqlite3.Connection, tool: str, args: dict[str, Any], meta: dict[str, Any] | None = None) -> Finding:

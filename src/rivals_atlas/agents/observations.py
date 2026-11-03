@@ -23,6 +23,7 @@ class Observation:
     relation: str
     badge: str                      # what the check established, in words
     findings: list[tools.Finding]
+    agent: str = ""                 # which specialist wrote it
 
 
 def _ranged(*fs: tools.Finding) -> str | None:

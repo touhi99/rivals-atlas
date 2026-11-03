@@ -20,7 +20,7 @@ dashboard, lets you explore with statistics, hero graphs, and lets you analyse c
 | **Patterns** | Results by weekday, hour and session, with an activity calendar |
 | **Squad** | Your regular teammates and how each party combination did |
 | **Explore** | Filter by map, role, bans, time of day or party, and see the result as a hero graph or a breakdown |
-| **Agents** | **Ask**: a chat with the knowledge-graph agent, where every number comes from a query you can open and check. **Insights**: what the Coach and the Tilt guard found in the matches, each sentence next to the numbers it rests on |
+| **Agents** | **Ask**: a chat with the knowledge-graph agent, where every number comes from a query you can open and check. **Insights**: what the Coach, the Tilt guard, the Squad synergy agent and the Matchup advisor found in the matches, each sentence next to the numbers it rests on |
 | **Data** | What is stored, and fetching match history |
 
 ## How it fits together

@@ -46,4 +46,4 @@ def make_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
 
 def generators(spec: str | None = None) -> dict[str, Any]:
     """One generator per agent name, all the same model."""
-    return {name: make_generator(spec) for name in ("coordinator", "coach", "tilt_guard", "cartographer")}
+    return {name: make_generator(spec) for name in ("coordinator", "coach", "tilt_guard", "cartographer", "squad_synergy", "matchup_advisor")}

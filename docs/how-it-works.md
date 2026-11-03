@@ -37,7 +37,7 @@ free-form questions from it, and **insights** lets agents point out what stands 
 
 ## 4. Insights: the agents at work
 
-The Ask tab of the Agents page uses one agent. Insights use a small team: a Coordinator asks the Coach and the Tilt guard what stands out in
+The Ask tab of the Agents page uses one agent. Insights use a small team: a Coordinator asks the Coach, the Tilt guard, the Squad synergy agent and the Matchup advisor what stands out in
 the matches, and the observations that hold up are shown on the Insights tab.
 
 | Agent | What it does | Used by |
@@ -46,12 +46,14 @@ the matches, and the observations that hold up are shown on the Insights tab.
 | Coordinator | Reads a request, asks the right agents and combines what they found | Insights, `rivals-atlas ask` |
 | Coach | Compares heroes with each other, with 50% and with the site's figures, in ranked and quick play | Insights |
 | Tilt guard | Checks whether results change by game number in a session | Insights |
+| Squad synergy | Compares results with and without a regular teammate on the same side | Insights |
+| Matchup advisor | Finds enemy heroes and bans that go with better or worse results | Insights |
 
 | Step | What happens | Code |
 |---|---|---|
 | Trigger | **Run now** on the Insights tab or `rivals-atlas insights`; after that, again after each fetch that added matches | `web/insights.py` |
-| Context | Both agents are told the most played heroes per mode and how to pick earlier seasons, which they cannot look up | `agents/__init__.py` |
-| Delegate | The Coordinator asks both; each calls its own tools on the database | `agents/` |
+| Context | The agents are told the most played heroes per mode and how to pick earlier seasons, which they cannot look up | `agents/__init__.py` |
+| Delegate | The Coordinator asks all four; each calls its own tools on the database | `agents/` |
 | Observe | Each agent writes short observations: a sentence, a relation (higher, lower, similar, above 50%, above the site figure) and the tool calls it rests on. It writes no numbers | `agents/observations.py` |
 | Check | The app runs those calls itself and keeps an observation only if the relation holds: a difference needs 95% ranges that are apart, and "similar" needs narrow ones | `agents/observations.py` |
 | Show | Kept observations are saved to the data folder and drawn as cards, the sentence beside the numbers it rests on | `agents/insights.py` |

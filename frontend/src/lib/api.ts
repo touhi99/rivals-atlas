@@ -176,9 +176,11 @@ export type InsightRow = {
   hero?: { id: number; name: string; icon: string | null }
   map?: { name: string; icon: string | null }
   position?: number
+  teammate?: { name: string; present: boolean }
+  enemy?: { id: number; name: string; icon: string | null }
 }
 
-export type Observation = { text: string; relation: string; badge: string; evidence: InsightRow[] }
+export type Observation = { agent?: string; text: string; relation: string; badge: string; evidence: InsightRow[] }
 
 export type InsightsData = {
   data: null | {

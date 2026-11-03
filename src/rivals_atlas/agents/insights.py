@@ -18,7 +18,8 @@ from rivals_atlas.core import config, db, names, queries
 FILE = "insights.json"
 QUESTION = ("What stands out in the player's matches? Ask the coach about heroes against each other, against 50% and against the "
             "site's figures, in ranked and in quick play, and ask the tilt guard whether results change with the game number in a "
-            "session. Ask both.")
+            "session. Ask the squad_synergy agent whether results differ with a regular teammate on the player's side, and the "
+            "matchup_advisor about enemy heroes and bans. Ask all four.")
 def path(base: Path | None = None) -> Path:
     return (base or config.data_dir()) / FILE
 
@@ -59,6 +60,11 @@ def _row(f: Finding) -> dict[str, Any]:
         row["hero"] = {"id": hero, "name": names.hero_name(hero), "icon": names.hero_icon(hero)}
     if f.args.get("map_id") is not None:
         row["map"] = {"name": names.map_name(f.args["map_id"]), "icon": names.map_icon(f.args["map_id"])}
+    if f.tool == "squad_stats":
+        row["teammate"] = {"name": f.value.get("teammate", "teammate"), "present": f.args.get("present", True)}
+    if f.tool == "matchup_stats":
+        e = f.args["enemy"]
+        row["enemy"] = {"id": e, "name": names.hero_name(e), "icon": names.hero_icon(e)}
     if f.tool == "session_stats":
         row["position"] = f.args["position"]
     if f.tool == "rank_journey":
@@ -75,7 +81,7 @@ def generate(db_path: Path | str, base: Path, meta: dict[str, Any] | None = None
         raise ValueError("There are no ranked matches yet.")
     ledger = agents.Ledger()
     agents.ask(QUESTION, generators or llm.generators(), db_path, meta, ledger, insights=True)
-    found = [{"text": o.text, "relation": o.relation, "badge": o.badge, "evidence": [_row(f) for f in o.findings]}
+    found = [{"text": o.text, "relation": o.relation, "badge": o.badge, "agent": o.agent, "evidence": [_row(f) for f in o.findings]}
              for o in ledger.observations]
     data = {"generated_at": time.time(), "model": llm.setting(base), "scope": "Ranked and quick play",
             "matches": match_count(db_path), "observations": found, "dropped": ledger.dropped}

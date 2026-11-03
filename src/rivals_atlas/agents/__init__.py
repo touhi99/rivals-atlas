@@ -130,7 +130,7 @@ def claim_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None 
     return create_tool_from_function(record_claim)
 
 
-def observation_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None) -> Tool:
+def observation_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None, agent: str = "") -> Tool:
     def record_observation(text: str, relation: str, evidence: list[dict[str, Any]]) -> str:
         """Record one observation for the page: one short sentence with no digits, a relation (higher, lower, similar, above_even,
         below_even, above_site, below_site, rose, fell) and the tool calls it rests on, each {"tool": name, "args": {...}}. The
@@ -139,6 +139,7 @@ def observation_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] |
         if isinstance(r, str):
             ledger.add_dropped(r)
             return f"dropped: {r}"
+        r.agent = agent
         ledger.add_observation(r)
         return "accepted"
     return create_tool_from_function(record_observation)
@@ -150,9 +151,26 @@ SPECIALISTS = {
                "hero_benchmark")),
     "tilt_guard": ("Checks whether results change by position in a session.",
                    ("session_stats", "hero_stats", "rank_journey")),
+    "squad_synergy": ("Whether results differ with a regular teammate on the same side, and on which heroes or maps.",
+                      ("squad_stats", "graph_neighbors", "hero_stats", "map_stats")),
+    "matchup_advisor": ("Which enemy heroes and bans go with better or worse results for the player.",
+                        ("matchup_table", "matchup_stats", "graph_pattern", "hero_stats", "map_stats")),
     "cartographer": ("Any question about matches, heroes, opponents, teammates, comps: writes a read-only graph query.",
                      ("cypher_query", "comp_stats", "hero_benchmark", "graph_pattern", "match_lookup")),
 }
+
+
+INSIGHTS_ONLY = ("squad_synergy", "matchup_advisor")      # their prompts exist only for the insights run
+
+
+def squad_context(db_path: Path | str, top: int = 6) -> str:
+    """The regular teammates the Squad agent can name, by the first characters of their hashed id (never an alias)."""
+    con = db.connect_readonly(db_path)
+    mates = stats.squad(con, Filter(mode=0), min_games=queries.REGULAR_GAMES)[:top]
+    if not mates:
+        return "\n\nThe player has no regular teammates yet, so there is nothing to compare."
+    return ("\n\nRegular teammates over all modes (teammate id to use in tool calls, games together): "
+            + ", ".join(f"{m['player_id'][:8]} ({m['games']})" for m in mates))
 
 
 def specialist(name: str, chat_generator: Any, db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None,
@@ -161,10 +179,12 @@ def specialist(name: str, chat_generator: Any, db_path: Path | str, ledger: Ledg
     # The Cartographer's rows are printed from the data by `Ledger.report`; asking the model to also write one claim per row
     # cost about 6 s of output tokens for nothing, so it has no claim tool.
     if insights:
-        extra = [observation_tool(db_path, ledger, meta)]
+        extra = [observation_tool(db_path, ledger, meta, name)]
     else:
         extra = [] if name == "cartographer" else [claim_tool(db_path, ledger, meta)]
     system = prompt(name, insights) + ("" if name == "cartographer" else data_context(db_path, insights=insights))
+    if name == "squad_synergy":
+        system += squad_context(db_path)
     return Agent(chat_generator=chat_generator, system_prompt=system, max_agent_steps=MAX_STEPS * 2 if insights else MAX_STEPS,
                  tools=[RivalsToolset(db_path, tool_names, meta, ledger), *extra], hooks=HOOKS, state_schema=STATE_SCHEMA)
 
@@ -172,7 +192,7 @@ def specialist(name: str, chat_generator: Any, db_path: Path | str, ledger: Ledg
 def coordinator(chat_generators: dict[str, Any], db_path: Path | str, ledger: Ledger,
                 meta: dict[str, Any] | None = None, insights: bool = False) -> Agent:
     """chat_generators: one per agent name ('coordinator', 'coach', 'tilt_guard'); tests pass MockChatGenerators."""
-    roster = [n for n in SPECIALISTS if not (insights and n == "cartographer")]
+    roster = [n for n in SPECIALISTS if (n != "cartographer" if insights else n not in INSIGHTS_ONLY)]
     team = [AgentTool(specialist(n, chat_generators[n], db_path, ledger, meta, insights), name=n, description=SPECIALISTS[n][0])
             for n in roster]
     system = (PROMPTS / "insights_coordinator.md").read_text().strip() if insights else prompt("coordinator")

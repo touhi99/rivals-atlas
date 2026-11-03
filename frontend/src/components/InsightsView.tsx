@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { postJson, useApi, type InsightRow, type InsightsData, type Observation } from '@/lib/api'
 
 const when = (t: number) => new Date(t * 1000).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const AGENTS: Record<string, string> = { coach: 'Coach', tilt_guard: 'Tilt guard', squad_synergy: 'Squad synergy', matchup_advisor: 'Matchup advisor' }
 const TONE: Record<string, string> = {
   above_even: 'bg-emerald-500/15 text-emerald-300', above_site: 'bg-emerald-500/15 text-emerald-300',
   below_even: 'bg-orange-500/15 text-orange-300', below_site: 'bg-orange-500/15 text-orange-300',
@@ -15,11 +16,13 @@ const TONE: Record<string, string> = {
 /** One piece of evidence as a range row: the dot is the win rate, the line is the 95% range, the centre mark is 50%. */
 function Evidence({ r }: { r: InsightRow }) {
   const s = { rate: r.rate, lo: r.lo, hi: r.hi, n: r.n, enough: r.enough }
-  const name = r.position != null ? `Game ${r.position >= 5 ? '5+' : r.position}` : (r.hero?.name ?? r.map?.name ?? 'Overall')
+  const base = r.position != null ? `Game ${r.position >= 5 ? '5+' : r.position}` : (r.hero?.name ?? r.map?.name ?? 'Overall')
+  const name = r.teammate ? `${r.teammate.present ? 'With' : 'Without'} a regular teammate${r.hero || r.map ? ` · ${base}` : ''}`
+    : r.enemy ? `Against ${r.enemy.name}${r.hero ? ` · as ${r.hero.name}` : ''}` : base
   const scope = [r.mode, r.season ?? (r.earlier ? 'earlier seasons' : null)].filter(Boolean).join(' · ')
   return (
     <div className="flex items-center gap-3">
-      {r.hero && <HeroFace hero={r.hero} size={26} />}
+      {(r.enemy ?? r.hero) && <HeroFace hero={(r.enemy ?? r.hero)!} size={26} />}
       {r.map && <MapBanner map={{ place: r.map.name, icon: r.map.icon }} className="h-6 w-10 shrink-0" />}
       <div className="min-w-0 flex-1">
         <RangeRow label={<><span className="text-foreground">{name}</span> <span className="text-xs">{scope}</span></>} s={s} domain={[0.15, 0.85]} labelWidth={200} />
@@ -34,13 +37,14 @@ function Card({ o }: { o: Observation }) {
       <div className="flex flex-col items-start gap-2.5">
         <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium', TONE[o.relation] ?? 'bg-muted text-muted-foreground')}>{o.badge}</span>
         <p className="text-base leading-snug font-medium">{o.text}</p>
+        {o.agent && AGENTS[o.agent] && <span className="text-[11px] text-muted-foreground">{AGENTS[o.agent]}</span>}
       </div>
       <div className="flex flex-col">{o.evidence.map((r, i) => <Evidence key={i} r={r} />)}</div>
     </div>
   )
 }
 
-/** What the Coach and the Tilt guard found. Each card is the model's sentence with the numbers it rests on, checked by the app. */
+/** What the Coach, Tilt guard, Squad synergy and Matchup advisor found. Each card is the model's sentence with the numbers it rests on, checked by the app. */
 export default function InsightsView() {
   const [tick, setTick] = useState(0)                      // changing it refetches
   const { data: s } = useApi<InsightsData>('insights', `t=${tick}`)
@@ -58,7 +62,7 @@ export default function InsightsView() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {d ? `${d.scope} · ${when(d.generated_at)} · ${d.model}${s?.stale ? ' · new matches since' : ''}` : 'What the Coach and the Tilt guard find in the matches'}
+          {d ? `${d.scope} · ${when(d.generated_at)} · ${d.model}${s?.stale ? ' · new matches since' : ''}` : 'What the agents find in the matches'}
         </p>
         <Button variant="outline" onClick={() => void run()} disabled={running || !s}>
           {running ? <Loader2 className="animate-spin" /> : <RefreshCw />}{running ? 'Looking…' : d ? 'Refresh' : 'Run now'}
@@ -75,7 +79,7 @@ export default function InsightsView() {
         <>
           <div className="flex flex-col gap-4">{d.observations.map((o) => <Card key={o.text} o={o} />)}</div>
           <p className="text-[11px] text-muted-foreground">
-            Written by the Coach and the Tilt guard. The app runs the queries behind each sentence and checks that the difference is real, meaning the 95% ranges
+            Written by the Coach, the Tilt guard, the Squad synergy agent and the Matchup advisor. The app runs the queries behind each sentence and checks that the difference is real, meaning the 95% ranges
             are apart. It cannot check the wording, so read the bars too.{d.dropped.length > 0 && ` ${d.dropped.length} suggested observation${d.dropped.length > 1 ? 's' : ''} did not pass.`}
           </p>
         </>
