@@ -36,7 +36,7 @@ function Note({ o }: { o: Observation }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start gap-2">
-        <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium', TONE[o.relation] ?? 'bg-muted text-muted-foreground')}>{o.badge}</span>
+        <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium', TONE[o.relation] ?? 'bg-muted text-muted-foreground')}>{o.badge.replace('the site figure', 'the meta average')}</span>
         <p className="text-base leading-snug font-medium">{o.text}</p>
         {o.agent && AGENTS[o.agent] && <span className="text-[11px] text-muted-foreground">{AGENTS[o.agent]}</span>}
       </div>
@@ -115,7 +115,7 @@ export default function InsightsView() {
       {d && d.observations.length > 0 && (
         <>
           <div className={cn('grid gap-6', down.length && up.length && 'lg:grid-cols-2')}>
-            {[['Below even or the site', 'text-orange-300', down], ['Above even or the site', 'text-emerald-300', up]].map(([title, tone, list]) => (
+            {[['Below 50% or the meta average', 'text-orange-300', down], ['Above 50% or the meta average', 'text-emerald-300', up]].map(([title, tone, list]) => (
               (list as Observation[]).length > 0 && (
                 <section key={title as string} className="flex flex-col gap-4">
                   <h3 className={cn('text-sm font-semibold', tone as string)}>{title as string}</h3>

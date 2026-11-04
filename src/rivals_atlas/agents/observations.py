@@ -74,8 +74,8 @@ RELATIONS: dict[str, tuple[int, Callable[..., str | None], str]] = {
     "similar": (2, _similar, "no clear difference"),
     "above_even": (1, _above_even, "above 50%"),
     "below_even": (1, _below_even, "below 50%"),
-    "above_site": (1, _meta(1), "above the site figure"),
-    "below_site": (1, _meta(-1), "below the site figure"),
+    "above_site": (1, _meta(1), "above the meta average"),
+    "below_site": (1, _meta(-1), "below the meta average"),
 }
 
 
