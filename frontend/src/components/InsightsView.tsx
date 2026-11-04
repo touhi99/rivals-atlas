@@ -59,7 +59,7 @@ export default function InsightsView() {
   }, [busy, tick])
 
   const run = async () => { await postJson(`/api/insights/run?mode=${mode}`, {}); setTick((n) => n + 1) }
-  const d = s?.data
+  const d = s?.data && { ...s.data, observations: s.data.observations.filter((o) => o.relation !== 'similar') }   // older saved runs may still hold them
 
   return (
     <div className="flex flex-col gap-6">

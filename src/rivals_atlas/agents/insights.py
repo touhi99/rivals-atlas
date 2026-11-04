@@ -22,7 +22,7 @@ QUESTION = ("What stands out in the player's matches? Ask the coach about heroes
             "site's figures, in ranked and in quick play, and ask the tilt guard whether results change with the game number in a "
             "session. Ask the squad_synergy agent whether results differ with a regular teammate on the player's side, and the "
             "matchup_advisor about enemy heroes and bans. Ask all four. Prefer what moved the most games (often-played heroes and often-met "
-            "enemies) over rare cases, and do not fill the page with results that are merely similar.")
+            "enemies) over rare cases, and record nothing for results that are merely alike.")
 def path(base: Path | None = None, mode: int = 0) -> Path:
     return (base or config.data_dir()) / SCOPES[mode][0]
 
@@ -91,6 +91,9 @@ def generate(db_path: Path | str, base: Path, meta: dict[str, Any] | None = None
     found = [{"text": o.text, "relation": o.relation, "badge": o.badge, "agent": o.agent, "evidence": [_row(f) for f in o.findings]}
              for o in ledger.observations]
     dropped = list(ledger.dropped)
+    alike = [o for o in found if o["relation"] == "similar"]       # "no clear difference" is a failed insight, not a finding
+    dropped += [f"no difference: {o['text']}" for o in alike]
+    found = [o for o in found if o["relation"] != "similar"]
     if only is not None:                                  # the app enforces the scope, whatever the model chose to look at
         kept = [o for o in found if all(e["mode"] == only for e in o["evidence"])]
         dropped += [f"outside {only}: {o['text']}" for o in found if o not in kept]
