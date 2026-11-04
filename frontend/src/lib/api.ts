@@ -186,10 +186,10 @@ export type Observation = { agent?: string; text: string; relation: string; badg
 
 export type InsightsData = {
   data: null | {
-    generated_at: number; model: string; scope: string; matches: number
+    generated_at: number; model: string; scope: string; mode?: number; matches: number
     observations: Observation[]; dropped: string[]
     last_error?: string
   }
   stale: boolean
-  job: { state: 'idle' | 'running' | 'done' | 'error'; error?: string }
+  job: { state: 'idle' | 'running' | 'done' | 'error'; error?: string; mode?: number }
 }

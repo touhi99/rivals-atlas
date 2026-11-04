@@ -16,33 +16,35 @@ from rivals_atlas.analysis import stats
 from rivals_atlas.core import config, db, names, queries
 
 FILE = "insights.json"
+SCOPES = {0: ("insights.json", "Ranked and quick play", None), 2: ("insights_ranked.json", "Ranked play", "ranked"),
+          1: ("insights_quick.json", "Quick play", "quick play")}      # mode id -> saved file, label, the mode name on evidence rows
 QUESTION = ("What stands out in the player's matches? Ask the coach about heroes against each other, against 50% and against the "
             "site's figures, in ranked and in quick play, and ask the tilt guard whether results change with the game number in a "
             "session. Ask the squad_synergy agent whether results differ with a regular teammate on the player's side, and the "
             "matchup_advisor about enemy heroes and bans. Ask all four. Prefer what moved the most games (often-played heroes and often-met "
             "enemies) over rare cases, and do not fill the page with results that are merely similar.")
-def path(base: Path | None = None) -> Path:
-    return (base or config.data_dir()) / FILE
+def path(base: Path | None = None, mode: int = 0) -> Path:
+    return (base or config.data_dir()) / SCOPES[mode][0]
 
 
-def load(base: Path | None = None) -> dict[str, Any] | None:
-    p = path(base)
+def load(base: Path | None = None, mode: int = 0) -> dict[str, Any] | None:
+    p = path(base, mode)
     data = json.loads(p.read_text()) if p.exists() else None
     if data and "observations" not in data:
         return None                                       # an older format; run the agents again
     return data
 
 
-def _save(data: dict[str, Any], base: Path) -> None:
-    tmp = path(base).with_suffix(".tmp")
+def _save(data: dict[str, Any], base: Path, mode: int = 0) -> None:
+    tmp = path(base, mode).with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=1))
-    os.replace(tmp, path(base))
+    os.replace(tmp, path(base, mode))
 
 
-def record_error(message: str, base: Path | None = None) -> None:
+def record_error(message: str, base: Path | None = None, mode: int = 0) -> None:
     """Keep the last good insights and note why the newest run failed."""
     base = base or config.data_dir()
-    _save({**(load(base) or {}), "last_error": message, "last_error_at": time.time()}, base)
+    _save({**(load(base, mode) or {}), "last_error": message, "last_error_at": time.time()}, base, mode)
 
 
 def match_count(db_path: Path | str) -> int:
@@ -75,16 +77,25 @@ def _row(f: Finding) -> dict[str, Any]:
     return row
 
 
-def generate(db_path: Path | str, base: Path, meta: dict[str, Any] | None = None, generators: dict[str, Any] | None = None) -> dict[str, Any]:
+def generate(db_path: Path | str, base: Path, meta: dict[str, Any] | None = None, generators: dict[str, Any] | None = None,
+             mode: int = 0) -> dict[str, Any]:
+    """Run the agents. `mode` 0 looks at ranked and quick play, 2 only at ranked, 1 only at quick play."""
     con = db.connect_readonly(db_path)
     seasons = queries.seasons_in_mode(con, 2)
     if not seasons:
         raise ValueError("There are no ranked matches yet.")
     ledger = agents.Ledger()
-    agents.ask(QUESTION, generators or llm.generators(), db_path, meta, ledger, insights=True)
+    _, label, only = SCOPES[mode]
+    question = QUESTION if only is None else (QUESTION + f" Look only at {only} (mode={mode}); say nothing about the other mode.")
+    agents.ask(question, generators or llm.generators(), db_path, meta, ledger, insights=True)
     found = [{"text": o.text, "relation": o.relation, "badge": o.badge, "agent": o.agent, "evidence": [_row(f) for f in o.findings]}
              for o in ledger.observations]
-    data = {"generated_at": time.time(), "model": llm.setting(base), "scope": "Ranked and quick play",
-            "matches": match_count(db_path), "observations": found, "dropped": ledger.dropped}
-    _save(data, base)
+    dropped = list(ledger.dropped)
+    if only is not None:                                  # the app enforces the scope, whatever the model chose to look at
+        kept = [o for o in found if all(e["mode"] == only for e in o["evidence"])]
+        dropped += [f"outside {only}: {o['text']}" for o in found if o not in kept]
+        found = kept
+    data = {"generated_at": time.time(), "model": llm.setting(base), "scope": label, "mode": mode,
+            "matches": match_count(db_path), "observations": found, "dropped": dropped}
+    _save(data, base, mode)
     return data

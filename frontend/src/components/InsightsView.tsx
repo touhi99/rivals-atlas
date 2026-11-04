@@ -2,6 +2,7 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { HeroFace, MapBanner, Panel, RangeRow } from '@/components/bits'
 import { Button } from '@/components/ui/button'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { postJson, useApi, type InsightRow, type InsightsData, type Observation } from '@/lib/api'
 
@@ -47,24 +48,31 @@ function Card({ o }: { o: Observation }) {
 /** What the Coach, Tilt guard, Squad synergy and Matchup advisor found. Each card is the model's sentence with the numbers it rests on, checked by the app. */
 export default function InsightsView() {
   const [tick, setTick] = useState(0)                      // changing it refetches
-  const { data: s } = useApi<InsightsData>('insights', `t=${tick}`)
-  const running = s?.job.state === 'running'
+  const [mode, setMode] = useState(0)                      // 0 = ranked and quick play, 2 = ranked, 1 = quick play; each keeps its own saved result
+  const { data: s } = useApi<InsightsData>('insights', `mode=${mode}&t=${tick}`)
+  const busy = s?.job.state === 'running'                // one job at a time, whichever scope it is for
+  const running = busy && (s.job.mode ?? 0) === mode
   useEffect(() => {
-    if (!running) return
+    if (!busy) return
     const t = window.setTimeout(() => setTick((n) => n + 1), 2000)
     return () => window.clearTimeout(t)
-  }, [running, tick])
+  }, [busy, tick])
 
-  const run = async () => { await postJson('/api/insights/run', {}); setTick((n) => n + 1) }
+  const run = async () => { await postJson(`/api/insights/run?mode=${mode}`, {}); setTick((n) => n + 1) }
   const d = s?.data
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <ToggleGroup variant="outline" size="sm" value={[String(mode)]} onValueChange={(v) => v[0] && setMode(Number(v[0]))}>
+          {[['0', 'All'], ['2', 'Ranked'], ['1', 'Quick play']].map(([id, label]) => (
+            <ToggleGroupItem key={id} value={id} className="px-3 aria-pressed:bg-primary aria-pressed:font-semibold aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary">{label}</ToggleGroupItem>
+          ))}
+        </ToggleGroup>
         <p className="text-sm text-muted-foreground">
           {d ? `${d.scope} · ${when(d.generated_at)} · ${d.model}${s?.stale ? ' · new matches since' : ''}` : 'What the agents find in the matches'}
         </p>
-        <Button variant="outline" onClick={() => void run()} disabled={running || !s}>
+        <Button variant="outline" onClick={() => void run()} disabled={busy || !s}>
           {running ? <Loader2 className="animate-spin" /> : <RefreshCw />}{running ? 'Looking…' : d ? 'Refresh' : 'Run now'}
         </Button>
       </div>
