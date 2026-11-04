@@ -34,7 +34,7 @@ function Evidence({ r }: { r: InsightRow }) {
 
 function Card({ o }: { o: Observation }) {
   return (
-    <div className="grid gap-5 rounded-xl border border-border/60 bg-card p-5 shadow-xs md:grid-cols-[1fr_1.15fr] md:items-center">
+    <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-5 shadow-xs">
       <div className="flex flex-col items-start gap-2.5">
         <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium', TONE[o.relation] ?? 'bg-muted text-muted-foreground')}>{o.badge}</span>
         <p className="text-base leading-snug font-medium">{o.text}</p>
@@ -61,6 +61,10 @@ export default function InsightsView() {
   const run = async () => { await postJson(`/api/insights/run?mode=${mode}`, {}); setTick((n) => n + 1) }
   const d = s?.data && { ...s.data, observations: s.data.observations.filter((o) => o.relation !== 'similar') }   // older saved runs may still hold them
 
+  const isDown = (o: Observation) => o.relation === 'below_even' || o.relation === 'below_site' || o.relation === 'lower'
+  const down = d ? d.observations.filter(isDown) : []
+  const up = d ? d.observations.filter((o) => !isDown(o)) : []
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -85,7 +89,16 @@ export default function InsightsView() {
 
       {d && d.observations.length > 0 && (
         <>
-          <div className="flex flex-col gap-4">{d.observations.map((o) => <Card key={o.text} o={o} />)}</div>
+          <div className={cn('grid gap-6', down.length && up.length && 'lg:grid-cols-2')}>
+            {[['Below even or the site', 'text-orange-300', down], ['Above even or the site', 'text-emerald-300', up]].map(([title, tone, list]) => (
+              (list as Observation[]).length > 0 && (
+                <section key={title as string} className="flex flex-col gap-4">
+                  <h3 className={cn('text-sm font-semibold', tone as string)}>{title as string}</h3>
+                  {(list as Observation[]).map((o) => <Card key={o.text} o={o} />)}
+                </section>
+              )
+            ))}
+          </div>
           <p className="text-[11px] text-muted-foreground">
             Written by the Coach, the Tilt guard, the Squad synergy agent and the Matchup advisor. The app runs the queries behind each sentence and checks that the difference is real, meaning the 95% ranges
             are apart. It cannot check the wording, so read the bars too.{d.dropped.length > 0 && ` ${d.dropped.length} suggested observation${d.dropped.length > 1 ? 's' : ''} did not pass.`}
