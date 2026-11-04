@@ -6,6 +6,7 @@ import sqlite3
 import time
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlencode
 
 from rivals_atlas.agents import tools
 from rivals_atlas.analysis import explore as ex
@@ -193,10 +194,14 @@ def explore(con: sqlite3.Connection, query: Any, default_min: Any, stale: bool) 
     ch = ex.choices(con, spec["mode"])
     out: dict[str, Any] = {
         "spec": spec, "group_by": group_by, "asked": asked, "error": error, "graph_stale": stale,
-        "chips": [{"label": c["label"], "drop": c["drop"]} for c in ex.chips(spec, group_by)],
+        "chips": [{"label": c["label"], "drop": c["drop"]} for c in ex.chips(spec, group_by)] + [
+            {"label": f"with {names.player_label(con, i)}", "drop": urlencode({**{k: v for k, v in spec.items() if k != "with"},
+             **({"with": [x for x in spec["with"] if x != i]} if len(spec["with"]) > 1 else {}),
+             **({"group_by": group_by} if group_by else {}), "go": 1}, doseq=True)} for i in spec.get("with", [])],
         "choices": {k: [{"value": v, "label": t} for v, t in ch[k]] for k in
                     ("heroes", "maps", "seasons", "roles", "blocks", "weekdays", "positions", "regulars", "groups")},
         "result": None,
+        "teammates": [{"value": v, "label": t} for v, t in ex.regular_choices(con)],
     }
     if result:
         p = result["panels"]
@@ -208,5 +213,6 @@ def explore(con: sqlite3.Connection, query: Any, default_min: Any, stale: bool) 
                        "trend": ({"points": [{"week": q["week"], "rate": q["rate"], "n": q["n"]} for q in p["trend"]["points"]]}
                                  if p["trend"] else None)},
         }
+        out["result"]["combos"] = [{"ids": g["ids"], "name": g["name"], **stat({**g, "games": g["games"]})} for g in ex.combos(con, spec)[:15]]
         out["default_min"] = default_min(result["games"], "teammates")
     return out

@@ -136,6 +136,58 @@ _CACHE: dict[tuple[Any, ...], tuple[list[dict[str, Any]], Callable[[], list[dict
 
 
 def _cached_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]:
+    """Matches of a spec. `with` (player ids) keeps only matches where all of those teammates were on the tracked player's side."""
+    base = {k: v for k, v in spec.items() if k != "with"}
+    want = spec.get("with")
+    if not want:
+        return _graph_rows(con, base)
+    rows, bans = _graph_rows(con, base)
+    together = _matches_with(con, want)
+    return [r for r in rows if r["uid"] in together], lambda: [b for b in bans() if b["uid"] in together]
+
+
+def _matches_with(con: sqlite3.Connection, ids: list[str]) -> set[str]:
+    marks = ",".join("?" * len(ids))
+    return {r[0] for r in con.execute(
+        "SELECT p.match_uid FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
+        f"WHERE p.is_self=1 AND t.player_id IN ({marks}) GROUP BY p.match_uid HAVING COUNT(DISTINCT t.player_id)=?", [*ids, len(ids)])}
+
+
+def regular_choices(con: sqlite3.Connection) -> list[tuple[str, str]]:
+    """Every regular teammate (id, label), most games together first: the options of the teammate picker."""
+    rows = con.execute(
+        "SELECT t.player_id, COUNT(*) c FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
+        "WHERE p.is_self=1 GROUP BY t.player_id HAVING c >= ? ORDER BY c DESC", (queries.REGULAR_GAMES,)).fetchall()
+    return [(r[0], f"{names.player_label(con, r[0])} ({r[1]})") for r in rows]
+
+
+def combos(con: sqlite3.Connection, spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """Results per exact set of regular teammates present in the selected matches (none = playing without any of them)."""
+    res = {r["uid"]: r["result"] for r in _cached_rows(con, spec)[0]}
+    regular = {r[0] for r in regular_choices_ids(con)}
+    present: dict[str, set[str]] = {}
+    for r in con.execute("SELECT p.match_uid, t.player_id FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid "
+                         "AND t.camp=p.camp AND t.is_self=0 WHERE p.is_self=1"):
+        if r[0] in res and r[1] in regular:
+            present.setdefault(r[0], set()).add(r[1])
+    groups: dict[frozenset[str], list[int]] = {}
+    for uid, result in res.items():
+        g = groups.setdefault(frozenset(present.get(uid, ())), [0, 0, 0])
+        g[0] += 1
+        g[1] += result == "win"
+        g[2] += result == "loss"
+    out = [{"ids": sorted(k), "name": " + ".join(sorted(names.player_label(con, i) for i in k)) or "None of the regulars",
+            "games": g[0], **stats.rate(g[1], g[2])} for k, g in groups.items()]
+    return sorted(out, key=lambda x: -x["games"])
+
+
+def regular_choices_ids(con: sqlite3.Connection) -> list[tuple[str]]:
+    return con.execute(
+        "SELECT t.player_id FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
+        "WHERE p.is_self=1 GROUP BY t.player_id HAVING COUNT(*) >= ?", (queries.REGULAR_GAMES,)).fetchall()
+
+
+def _graph_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]:
     """Graph query results for a spec, kept in memory until the graph file changes (matches never change once played)."""
     path = lbug_store.graph_path(con)
     if not path.exists():
@@ -161,6 +213,7 @@ def graph(con: sqlite3.Connection, spec: dict[str, Any], rel: str, min_n: int) -
 SPEC_INTS = ("mode", "season_from", "season_to", "map_id", "hero", "role", "block", "weekday", "session_pos", "regulars")
 SPEC_LISTS = ("banned", "not_banned")          # up to MAX_BANS heroes each: all banned / none banned
 MAX_BANS = 3
+MAX_WITH = 3
 
 
 def parse_spec(query: Any) -> tuple[dict[str, Any], str | None]:
@@ -171,6 +224,9 @@ def parse_spec(query: Any) -> tuple[dict[str, Any], str | None]:
         if v and v.lstrip("-").isdigit():
             spec[k] = int(v)
     spec.setdefault("mode", 2)
+    mates = [v for v in query.getlist("with") if v.isdigit()][:MAX_WITH]
+    if mates:
+        spec["with"] = mates
     for k in SPEC_LISTS:
         ids = [int(v) for v in query.getlist(k) if v.lstrip("-").isdigit()][:MAX_BANS]
         if ids:
@@ -212,6 +268,8 @@ def chips(spec: dict[str, Any], group_by: str | None) -> list[dict[str, str]]:
     for k, v in spec.items():
         if k == "mode" or v is None:
             continue
+        if k == "with":
+            continue                                     # chips for teammates are built by the caller, which knows their names
         if k in SPEC_LISTS:
             for hero_id in v:
                 rest = [h for h in v if h != hero_id]

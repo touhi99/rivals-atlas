@@ -51,8 +51,10 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
   const [sel, setSel] = useState<number | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; html: string } | null>(null)
   const [all, setAll] = useState(false)
+  const [more, setMore] = useState(false)
   const [find, setFind] = useState('')
   const [slider, setSlider] = useState(minN)
+  const [K, setK] = useState(16)   // weight: phantom 50% games added to every pair when ranking
   const byId = useMemo(() => Object.fromEntries((data?.nodes ?? []).map((n) => [n.id, n])) as Record<number, GraphNode>, [data])
   useEffect(() => setSlider(minN), [minN])
 
@@ -149,16 +151,23 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
   }, [sel, rows, data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const n = sel != null ? byId[sel] : null
-  const best = rows.filter((x) => x.e.rate > 0.5).sort((a, b) => b.e.lo - a.e.lo).slice(0, 5)
-  const worst = rows.filter((x) => x.e.rate <= 0.5).sort((a, b) => a.e.hi - b.e.hi).slice(0, 5)
+  // readable order: rank by a weighted win rate (pulled toward 50% by K phantom games), so 83% over 6 games
+  // doesn't outrank 62% over 45. The list still shows the raw rate and game count.
+  const score = (x: Row) => (x.e.rate * x.e.n + K * 0.5) / (x.e.n + K)
+  const bestAll = rows.filter((x) => score(x) > 0.5).sort((a, b) => score(b) - score(a) || b.e.n - a.e.n)
+  const worstAll = rows.filter((x) => score(x) <= 0.5).sort((a, b) => score(a) - score(b) || b.e.n - a.e.n)
+  const best = more ? bestAll : bestAll.slice(0, 5)
+  const worst = more ? worstAll : worstAll.slice(0, 5)
+  const hidden = bestAll.length - best.length + worstAll.length - worst.length
   const lab = rel === 'maps' ? (n?.kind === 'map' ? ['Best heroes here', 'Worst heroes here'] : ['Best maps', 'Worst maps']) : rel === 'enemies' ? ['Beats', 'Loses to'] : ['Best with', 'Worst with']
+  const cap = rel === 'maps' ? (n?.kind === 'map' ? 'Your win % per hero here · games' : 'Your win % per map · games') : rel === 'enemies' ? 'Your win % vs each enemy · games' : 'Your win % with each teammate · games'
   const empty = data && data.edges.length === 0
 
   const item = (x: Row) => (
-    <button key={x.o.id} type="button" onClick={() => setSel(x.o.id)} className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-accent/50">
+    <button key={x.o.id} type="button" onClick={() => setSel(x.o.id)} title={x.e.n < 5 ? `Only ${x.e.n} game${x.e.n === 1 ? '' : 's'}, too few to trust` : undefined} className={cn('flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-accent/50', x.e.n < 5 && 'opacity-50')}>
       <HeroFace hero={x.o} size={24} />
       <span className="flex-1 truncate text-sm">{x.o.kind === 'map' ? x.o.name : short(x.o.name)}</span>
-      <b className={cn('text-sm tabular-nums', x.e.rate >= 0.5 ? 'text-emerald-400' : 'text-orange-400')}>{Math.round(x.e.rate * 100)}%</b>
+      <b className={cn('text-sm tabular-nums', x.e.rate > 0.5 ? 'text-emerald-400' : x.e.rate < 0.5 ? 'text-orange-400' : 'text-muted-foreground')}>{Math.round(x.e.rate * 100)}%</b>
       <small className="w-8 text-right text-xs text-muted-foreground">{x.e.n}</small>
     </button>
   )
@@ -181,6 +190,8 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
         </div>
         <label className="flex items-center justify-between text-xs text-muted-foreground" title="A pair needs at least this many decided games"><span>Min games</span><b className="text-foreground">{slider}</b></label>
         <input type="range" min={1} max={80} value={slider} className="accent-[var(--primary)]" onChange={(e) => setSlider(Number(e.target.value))} onPointerUp={() => setMinN(slider)} onKeyUp={() => setMinN(slider)} />
+        <label className="flex items-center justify-between text-xs text-muted-foreground" title="Ranking weight: pulls every win rate toward 50% as if it had this many extra games. 0 = raw win rate; higher = small samples count for less. Only changes the order, not the numbers shown."><span>Sample weight</span><b className="text-foreground">{K}</b></label>
+        <input type="range" min={0} max={40} value={K} className="accent-[var(--primary)]" onChange={(e) => setK(Number(e.target.value))} />
         <div className="flex gap-3 text-[11px] text-muted-foreground"><span><i className="mr-1 inline-block h-[3px] w-3.5 bg-emerald-500 align-middle" />wins more</span><span><i className="mr-1 inline-block h-[3px] w-3.5 bg-orange-500 align-middle" />loses more</span></div>
         <label className="flex items-center justify-between text-xs text-muted-foreground"><span>Show all pairs</span><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /></label>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -196,8 +207,10 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
             {n.rate != null ? <div className="flex justify-between"><span>{n.games} games {n.kind === 'map' ? 'on this map' : 'as this hero'}</span><b className={cn(isClear(n) ? ((n.hi ?? 1) < 0.5 ? 'text-orange-400' : 'text-emerald-400') : 'text-foreground')}>{Math.round(n.rate * 100)}%</b></div> : 'Not played by the player'}
           </div>
           {!rows.length && <p className="mt-3 text-sm text-muted-foreground">No pair with at least {minN} games.{minN > 3 && <> <button className="underline" onClick={() => setMinN(3)}>Use 3 games</button></>}</p>}
+          {rows.length > 0 && <p className="mt-1 text-[11px] text-muted-foreground/80">{cap}</p>}
           {best.length > 0 && <><h4 className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">{lab[0]}</h4>{best.map(item)}</>}
           {worst.length > 0 && <><h4 className="mt-3 text-[11px] font-semibold uppercase text-muted-foreground">{lab[1]}</h4>{worst.map(item)}</>}
+          {(hidden > 0 || more) && <button type="button" onClick={() => setMore(!more)} className="mt-3 w-full rounded-md py-1 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground">{more ? 'Show less' : `Show ${hidden} more`}</button>}
         </div>
       )}
       {empty && (

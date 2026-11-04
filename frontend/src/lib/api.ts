@@ -143,10 +143,12 @@ export type ExploreData = {
   chips: { label: string; drop: string }[]
   choices: Record<'heroes' | 'maps' | 'seasons' | 'roles' | 'blocks' | 'weekdays' | 'positions' | 'regulars' | 'groups', Opt[]>
   default_min?: number
+  teammates: Opt[]
   result: null | {
     total: Omit<Tally, 'label' | 'games'>
     games: number; draws: number; group_title: string
     groups: Tally[]
+    combos?: (Tally & { ids: string[]; name: string })[]
     panels: {
       heroes: (Tally & { id: number; icon: string | null; role: string })[]
       maps: (Tally & { id: number; icon: string | null })[]

@@ -264,7 +264,7 @@ def spa(request: Request):
     if not index.exists():
         raise HTTPException(404, "The UI is not built yet: run ./scripts/setup.sh (or `npm run build` in frontend/)")
     from fastapi.responses import FileResponse
-    return FileResponse(index)
+    return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 for _path in ("/", "/heroes", "/heroes/{hero_id}", "/maps", "/patterns", "/squad", "/data", "/explore", "/agents", "/ask"):

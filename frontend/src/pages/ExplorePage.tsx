@@ -14,7 +14,7 @@ import { pct } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 
 const ANY = '__any'
-const LIST_KEYS = ['banned', 'not_banned']
+const LIST_KEYS = ['banned', 'not_banned', 'with']
 const MAX_PICK = 3
 const SPEC_KEYS = ['mode', 'season_from', 'season_to', 'map_id', 'hero', 'role', 'block', 'weekday', 'session_pos', 'regulars', 'group_by']
 
@@ -37,8 +37,8 @@ function Field({ label, value, onChange, options, any = 'Any' }: { label: string
 
 function MultiField({ label, values, onChange, options, hint }: { label: string; values: string[]; onChange: (v: string[]) => void; options: Opt[]; hint: string }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-      {label} <span className="text-[10px] opacity-70">(up to {MAX_PICK}, {hint})</span>
+    <label className="flex flex-col gap-1 text-[11px] text-muted-foreground" title={`Pick up to ${MAX_PICK}: games must match ${hint}`}>
+      <span className="truncate whitespace-nowrap">{label} <span className="text-[10px] opacity-70">(up to {MAX_PICK} · {hint})</span></span>
       <Select multiple value={values} onValueChange={(v) => onChange((v as string[]).slice(-MAX_PICK))}>
         <SelectTrigger size="sm" className="w-full">
           <SelectValue>{(v: string[]) => (v.length ? v.map((x) => options.find((o) => String(o.value) === x)?.label ?? x).join(', ') : 'Any')}</SelectValue>
@@ -82,6 +82,7 @@ export default function ExplorePage() {
   const minParam = Number(params.get('min_n')) || 0
   const minN = minParam || d?.default_min || 15
   const graphQuery = `${specQuery}&rel=${rel}&min_n=${minN}`
+  const [combosOpen, setCombosOpen] = useState<boolean | null>(null)   // null: open only while a teammate filter is on
   const [graph, setGraph] = useState<{ key: string; data: GraphData | null }>({ key: '', data: null })
   useEffect(() => {
     if (view !== 'graph' || !d?.result) return
@@ -97,6 +98,7 @@ export default function ExplorePage() {
     return n
   })
   const list = (k: string) => params.getAll(k)
+  const showCombos = combosOpen ?? (list('with').length > 0 || !!params.get('regulars'))
   const patchList = (k: string, values: string[]) => setParams((prev) => {
     const n = new URLSearchParams(prev)
     n.delete(k); values.forEach((v) => n.append(k, v)); n.set('go', '1'); n.delete('focus')
@@ -128,12 +130,13 @@ export default function ExplorePage() {
           <Panel title="More filters" hint="added to the filters at the top · changes apply straight away">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Role played" value={val('role')} onChange={(v) => patch({ role: v })} options={c.roles} />
-              <MultiField label="Heroes banned" values={list('banned')} onChange={(v) => patchList('banned', v)} options={c.heroes} hint="all of them" />
-              <MultiField label="Heroes not banned" values={list('not_banned')} onChange={(v) => patchList('not_banned', v)} options={c.heroes} hint="none of them" />
+              <MultiField label="Heroes banned" values={list('banned')} onChange={(v) => patchList('banned', v)} options={c.heroes} hint="all" />
+              <MultiField label="Heroes not banned" values={list('not_banned')} onChange={(v) => patchList('not_banned', v)} options={c.heroes} hint="none" />
               <Field label="Time of day" value={val('block')} onChange={(v) => patch({ block: v })} options={c.blocks} />
               <Field label="Weekday" value={val('weekday')} onChange={(v) => patch({ weekday: v })} options={c.weekdays} />
               <Field label="Game in session" value={val('session_pos')} onChange={(v) => patch({ session_pos: v })} options={c.positions} />
               <Field label="Regular teammates" value={val('regulars')} onChange={(v) => patch({ regulars: v })} options={c.regulars} />
+              <MultiField label="With teammates" values={list('with')} onChange={(v) => patchList('with', v)} options={d.teammates} hint="all" />
               <Field label="Break down by" value={d.group_by ?? ''} onChange={(v) => { patch({ group_by: v }); if (v) setParams((p) => { const n = new URLSearchParams(p); n.set('view', 'breakdown'); return n }) }} options={c.groups} any="Nothing" />
             </div>
           </Panel>
@@ -151,6 +154,25 @@ export default function ExplorePage() {
                 ) : <span className="text-sm text-muted-foreground">No decided matches satisfy these conditions.</span>}
                 <span className="text-sm text-muted-foreground">{r.games} matches{r.draws ? `, ${r.draws} draw${r.draws !== 1 ? 's' : ''} not counted` : ''}</span>
               </div>
+              {r.combos && r.combos.length > 0 && !showCombos && (
+                <button type="button" onClick={() => setCombosOpen(true)} className="self-start text-xs text-muted-foreground hover:text-foreground">Show teammate combinations ›</button>
+              )}
+              {r.combos && r.combos.length > 0 && showCombos && (
+                <Panel title="Teammate combinations" hint="results by which regular teammates were on the team · click a row to keep only those games"
+                  action={<button type="button" onClick={() => setCombosOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">Hide</button>}>
+                  <div className="flex flex-col gap-1">
+                    {r.combos.map((g) => (
+                      <button key={g.ids.join(',') || 'none'} type="button" disabled={!g.ids.length}
+                        onClick={() => patchList('with', g.ids)} title={g.ids.length ? 'Only games with exactly these teammates present' : undefined}
+                        className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted/40 disabled:hover:bg-transparent">
+                        <span className="truncate">{g.name}</span>
+                        <span className="text-right text-xs text-muted-foreground tabular-nums">{g.games} games</span>
+                        <WinBar s={{ ...g, draws: 0, kda: null }} width={110} />
+                      </button>
+                    ))}
+                  </div>
+                </Panel>
+              )}
               <Tabs value={view} onValueChange={(v) => setParams((p) => { const n = new URLSearchParams(p); n.set('view', String(v)); return n })}>
                 <TabsList><TabsTrigger value="graph">Graph</TabsTrigger><TabsTrigger value="breakdown">Breakdown</TabsTrigger></TabsList>
               </Tabs>
