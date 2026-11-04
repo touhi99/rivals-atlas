@@ -37,7 +37,7 @@ function Note({ o }: { o: Observation }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start gap-2">
         <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium', TONE[o.relation] ?? 'bg-muted text-muted-foreground')}>{o.badge.replace('the site figure', 'the meta average')}</span>
-        <p className="text-base leading-snug font-medium">{o.text}</p>
+        <p className="text-base leading-snug font-medium">{o.text.replace(/the site's figures?/g, 'the meta average')}</p>
         {o.agent && AGENTS[o.agent] && <span className="text-[11px] text-muted-foreground">{AGENTS[o.agent]}</span>}
       </div>
       <div className="flex flex-col">{o.evidence.map((r, i) => <Evidence key={i} r={r} />)}</div>
