@@ -267,16 +267,19 @@ def matchup_stats(con: sqlite3.Connection, enemy: int, mode: int = 2, season_fro
 def matchup_table(con: sqlite3.Connection, mode: int = 2, season_from: int | None = None, season_to: int | None = None,
                   hero: int | None = None, map_id: int | None = None, min_n: int = 10) -> Finding:
     """Win rate of the tracked player against each enemy hero (when that hero was on the other side), for heroes met in at
-    least min_n decided games, most met first. Use it to find candidates, then check one with matchup_stats."""
+    least min_n decided games. Sorted by impact, not by win rate: `net` is wins minus losses, and `weighted` is the win rate pulled
+    toward 50% as if the matchup had 16 more even games, so a 6-game 83% does not outrank a 45-game 62%. The largest |net| first
+    are the matchups that moved the most games. Use it to find candidates, then check one with matchup_stats."""
     args: dict[str, Any] = {"mode": mode, "season_from": season_from, "season_to": season_to, "hero": hero, "map_id": map_id,
                             "min_n": min_n}
     tally: dict[int, list[int]] = {}
     for r in queries.matchup_rows(con, _filter(mode, season_from, season_to, hero, map_id)):
         t = tally.setdefault(r["enemy"], [0, 0])
         t[r["result"] != "win"] += 1
-    items = sorted(({"hero_id": h, "hero": names.hero_name(h), **stats.rate(w, lo_)} for h, (w, lo_) in tally.items()
-                    if w + lo_ >= max(min_n, 1)),
-                   key=lambda x: -x["n"])
+    k = 16
+    items = sorted(({"hero_id": h, "hero": names.hero_name(h), **stats.rate(w, lo_), "net": w - lo_,
+                     "weighted": (w + k / 2) / (w + lo_ + k)} for h, (w, lo_) in tally.items() if w + lo_ >= max(min_n, 1)),
+                   key=lambda x: (-abs(x["weighted"] - 0.5) * x["n"], -x["n"]))
     return Finding("matchup_table", args, len(items), enough=bool(items), items=items)
 
 

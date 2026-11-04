@@ -19,7 +19,8 @@ FILE = "insights.json"
 QUESTION = ("What stands out in the player's matches? Ask the coach about heroes against each other, against 50% and against the "
             "site's figures, in ranked and in quick play, and ask the tilt guard whether results change with the game number in a "
             "session. Ask the squad_synergy agent whether results differ with a regular teammate on the player's side, and the "
-            "matchup_advisor about enemy heroes and bans. Ask all four.")
+            "matchup_advisor about enemy heroes and bans. Ask all four. Prefer what moved the most games (often-played heroes and often-met "
+            "enemies) over rare cases, and do not fill the page with results that are merely similar.")
 def path(base: Path | None = None) -> Path:
     return (base or config.data_dir()) / FILE
 

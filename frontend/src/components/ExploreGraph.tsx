@@ -160,7 +160,7 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
   const worst = more ? worstAll : worstAll.slice(0, 5)
   const hidden = bestAll.length - best.length + worstAll.length - worst.length
   const lab = rel === 'maps' ? (n?.kind === 'map' ? ['Best heroes here', 'Worst heroes here'] : ['Best maps', 'Worst maps']) : rel === 'enemies' ? ['Beats', 'Loses to'] : ['Best with', 'Worst with']
-  const cap = rel === 'maps' ? (n?.kind === 'map' ? 'Your win % per hero here · games' : 'Your win % per map · games') : rel === 'enemies' ? 'Your win % vs each enemy · games' : 'Your win % with each teammate · games'
+  const cap = rel === 'maps' ? (n?.kind === 'map' ? 'Win % per hero here · games' : 'Win % per map · games') : rel === 'enemies' ? 'Win % vs each enemy · games' : 'Win % with each teammate · games'
   const empty = data && data.edges.length === 0
 
   const item = (x: Row) => (
