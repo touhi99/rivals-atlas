@@ -32,15 +32,40 @@ function Evidence({ r }: { r: InsightRow }) {
   )
 }
 
-function Card({ o }: { o: Observation }) {
+function Note({ o }: { o: Observation }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-5 shadow-xs">
-      <div className="flex flex-col items-start gap-2.5">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-start gap-2">
         <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-medium', TONE[o.relation] ?? 'bg-muted text-muted-foreground')}>{o.badge}</span>
         <p className="text-base leading-snug font-medium">{o.text}</p>
         {o.agent && AGENTS[o.agent] && <span className="text-[11px] text-muted-foreground">{AGENTS[o.agent]}</span>}
       </div>
       <div className="flex flex-col">{o.evidence.map((r, i) => <Evidence key={i} r={r} />)}</div>
+    </div>
+  )
+}
+
+/** The hero an observation is about (an enemy, or the player's own hero), used to put cards about the same hero together. */
+const subject = (o: Observation) => { const r = o.evidence.find((e) => e.enemy ?? e.hero); return r ? (r.enemy ?? r.hero)! : null }
+
+/** One card per hero: observations about the same hero share a card; the rest keep one card each. */
+function groups(list: Observation[]): Observation[][] {
+  const by = new Map<string, Observation[]>(), out: Observation[][] = []
+  for (const o of list) {
+    const h = subject(o)
+    if (!h) { out.push([o]); continue }
+    const g = by.get(h.name)
+    if (g) g.push(o); else { const n = [o]; by.set(h.name, n); out.push(n) }
+  }
+  return out
+}
+
+function Card({ g }: { g: Observation[] }) {
+  const h = g.length > 1 ? subject(g[0]) : null
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-5 shadow-xs">
+      {h && <div className="flex items-center gap-2"><HeroFace hero={h} size={28} /><span className="text-sm font-semibold">{h.name}</span></div>}
+      {g.map((o, i) => <div key={o.text} className={cn(i > 0 && 'border-t border-border/50 pt-4')}><Note o={o} /></div>)}
     </div>
   )
 }
@@ -94,7 +119,7 @@ export default function InsightsView() {
               (list as Observation[]).length > 0 && (
                 <section key={title as string} className="flex flex-col gap-4">
                   <h3 className={cn('text-sm font-semibold', tone as string)}>{title as string}</h3>
-                  {(list as Observation[]).map((o) => <Card key={o.text} o={o} />)}
+                  {groups(list as Observation[]).map((g) => <Card key={g.map((o) => o.text).join('|')} g={g} />)}
                 </section>
               )
             ))}
