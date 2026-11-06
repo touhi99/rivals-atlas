@@ -1,0 +1,2 @@
+# The Windows launcher is a batch file: labels need CRLF even when the release is built on Linux.
+*.bat text eol=crlf

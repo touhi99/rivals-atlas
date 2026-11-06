@@ -88,8 +88,8 @@ def generate(db_path: Path | str, base: Path, meta: dict[str, Any] | None = None
     _, label, only = SCOPES[mode]
     question = QUESTION if only is None else (QUESTION + f" Look only at {only} (mode={mode}); say nothing about the other mode.")
     agents.ask(question, generators or llm.generators(), db_path, meta, ledger, insights=True)
-    found = [{"text": o.text, "relation": o.relation, "badge": o.badge, "agent": o.agent, "evidence": [_row(f) for f in o.findings]}
-             for o in ledger.observations]
+    found: list[dict[str, Any]] = [{"text": o.text, "relation": o.relation, "badge": o.badge, "agent": o.agent, "evidence": [_row(f) for f in o.findings]}
+                                   for o in ledger.observations]
     dropped = list(ledger.dropped)
     alike = [o for o in found if o["relation"] == "similar"]       # "no clear difference" is a failed insight, not a finding
     dropped += [f"no difference: {o['text']}" for o in alike]

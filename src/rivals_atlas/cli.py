@@ -4,15 +4,17 @@ from __future__ import annotations
 import argparse
 import os
 import sqlite3
+import sys
+import threading
 import time
+import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
+from rivals_atlas import openssl_fix
 from rivals_atlas.core import config, db
 from rivals_atlas.graph import knowledge
 from rivals_atlas.graph import network as graph
-from rivals_atlas.graph import store as lbug_store
-from rivals_atlas.ingest import fetch
 from rivals_atlas.ingest import meta as meta_mod
 from rivals_atlas.ingest.importer import import_folder
 
@@ -35,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("--agent", choices=["coordinator", "coach", "tilt_guard", "cartographer"], default="coordinator")
     sv = sub.add_parser("serve", help="start the dashboard")
     sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--open", action="store_true", help="open the dashboard in the browser once it is ready")
     sv.add_argument("--reload", action="store_true", help="development: restart on code changes")
     return ap
 
@@ -51,6 +54,7 @@ def cmd_import(a: argparse.Namespace, base: Path) -> int:
 
 
 def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
+    from rivals_atlas.ingest import fetch
     st = config.load_settings(base)
     profile = fetch.parse_profile(a.profile) or st.get("profile_id")
     if not profile:
@@ -72,6 +76,7 @@ def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
 
 
 def build_ladybug(con: sqlite3.Connection, base: Path) -> None:
+    from rivals_atlas.graph import store as lbug_store
     counts = lbug_store.rebuild(con, base / lbug_store.GRAPH_FILE, meta_mod.load(base))
     print(f"LadybugDB graph rebuilt: {counts}")
 
@@ -115,9 +120,55 @@ def cmd_insights(a: argparse.Namespace, base: Path) -> int:
     return 0
 
 
+def _port_open(port: int) -> bool:
+    import socket
+    with socket.socket() as s:
+        s.settimeout(0.2)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _is_ours(port: int) -> bool:
+    import json
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=0.5) as reply:
+            return json.load(reply).get("app") == "rivals-atlas"
+    except Exception:  # noqa: BLE001  (any failure means "not this app")
+        return False
+
+
+def _free_port(start: int) -> int | None:
+    for port in range(start, start + 20):
+        if not _port_open(port):
+            return port
+    return None
+
+
+def _open_when_ready(port: int) -> None:
+    for _ in range(300):
+        if _is_ours(port):
+            webbrowser.open(f"http://127.0.0.1:{port}/")
+            return
+        time.sleep(0.1)
+
+
 def cmd_serve(a: argparse.Namespace, base: Path) -> int:
+    port = a.port
+    if _port_open(port):
+        if _is_ours(port):
+            print(f"Rivals Atlas is already running: http://127.0.0.1:{port}/")
+            if a.open:
+                webbrowser.open(f"http://127.0.0.1:{port}/")
+            return 0
+        port = _free_port(port + 1)
+        if port is None:
+            print(f"Port {a.port} is in use by another program, and so are the next 20.")
+            return 1
+        print(f"Port {a.port} is in use by another program; using {port} instead.")
+    if a.open:
+        threading.Thread(target=_open_when_ready, args=(port,), daemon=True).start()
     import uvicorn
-    uvicorn.run("rivals_atlas.web.api:app", host="127.0.0.1", port=a.port, reload=a.reload,
+    uvicorn.run("rivals_atlas.web.api:app", host="127.0.0.1", port=port, reload=a.reload,
                 reload_dirs=[str(Path(__file__).parent)] if a.reload else None)
     return 0
 
@@ -131,4 +182,9 @@ COMMANDS: dict[str, Callable[[argparse.Namespace, Path], int]] = {
 def main(argv: list[str] | None = None) -> int:
     config.load_env()                      # .env in the working directory: model key and settings, never printed
     a = build_parser().parse_args(argv)
+    try:
+        openssl_fix.ensure()               # macOS: make LadybugDB loadable before anything imports it
+    except openssl_fix.FixError as e:
+        print(f"Rivals Atlas cannot start: {e}", file=sys.stderr)
+        return 1
     return COMMANDS[a.cmd](a, config.data_dir())

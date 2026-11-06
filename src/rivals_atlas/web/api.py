@@ -61,6 +61,12 @@ def get_filter(request: Request) -> Filter:
 Flt = Depends(get_filter)
 
 
+@app.get("/api/ping")
+def ping():
+    """Who is on this port. The launcher uses it to tell Rivals Atlas from any other local server."""
+    return {"app": "rivals-atlas"}
+
+
 @app.get("/api/shell")
 def shell_json(f: Filter = Flt, con=Con):
     return payloads.shell(con, f)
