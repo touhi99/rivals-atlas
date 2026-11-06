@@ -29,10 +29,26 @@ dashboard, lets you explore with statistics, hero graphs, and lets you analyse c
 
 More detail: [docs/how-it-works.md](docs/how-it-works.md).
 
-## Quick start
+## Install
 
-Needs [uv](https://docs.astral.sh/uv/) and [Node.js](https://nodejs.org/) 20 or newer. On macOS the graph engine also needs
-`brew install openssl@3`. Windows and Linux are untested; an issue is welcome if something fails.
+### Without a terminal (Windows and macOS)
+
+Download the zip for your computer from the [latest release](https://github.com/touhi99/rivals-atlas/releases/latest),
+unzip it, and start the launcher inside:
+
+- **Windows:** `RivalsAtlas-windows.zip` — double-click `Start Rivals Atlas.bat`.
+- **macOS:** `RivalsAtlas-macos.zip` — right-click `Start Rivals Atlas.command` and choose **Open** the first time
+  (macOS blocks downloaded scripts that are double-clicked).
+
+The first launch installs what is missing (a minute or two) and opens the dashboard in your browser; later launches
+open it straight away. The Terminal window (macOS) or console window (Windows) is the app — closing it stops it.
+On macOS the bundle carries the OpenSSL 3 libraries the graph engine needs, so Homebrew is not required.
+
+The Agents page needs a language model; every other page works without one.
+
+### From a terminal
+
+Needs [uv](https://docs.astral.sh/uv/). Node.js 20 or newer is needed only to build the front end from source.
 
 ```
 git clone <this repository>
@@ -40,6 +56,9 @@ cd rivals-atlas
 ./scripts/setup.sh                 # installs the Python side and the front end, and builds the web app
 uv run rivals-atlas serve          # http://127.0.0.1:8000
 ```
+
+`uv run rivals-atlas serve --open` opens the browser once the dashboard is ready. If port 8000 is taken, the next
+free port is used and printed.
 
 On the first start there is no data. Open **Data**, paste the address of a player's page on rivalsmeta.com (it ends with a
 number), read the notice, tick the box and press **Fetch**. Later fetches download only new matches, and a stopped fetch resumes.
