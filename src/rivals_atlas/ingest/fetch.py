@@ -28,12 +28,17 @@ UA = "rivals-atlas/0.1 (personal hobby project; one request every few seconds)"
 PAGE = 20
 Progress = Callable[[dict[str, Any]], None]
 
+REFRESH_COOLDOWN = 1800   # seconds the site's own Update button stays disabled after a request
+REFRESH_POLL = 10.0       # seconds between checks while waiting for the site to finish
+REFRESH_WAIT = 180.0      # longest wait for one refresh
+
 PACES = {"normal": 1.0, "gentle": 3.0}   # seconds between requests
 
 NOTICE = """What this does
 - Reads one public player profile from rivalsmeta.com, using the endpoints that site's own pages use.
 - One request every 3 seconds by default: a profile with a long history takes hours the first time.
 - Stores the raw files in the local data folder, then builds a local database. Nothing is sent anywhere else.
+- Before reading, asks the site to refresh the profile from the game, as its Update button does (at most once per 30 minutes, the site's own limit).
 - Stops at the first refusal and never retries. The site may change or block this at any time.
 - Ranked is fetched by default; quick play only when chosen. Please credit rivalsmeta.com if this tool or its data is used elsewhere.
 - Following the site's terms of use is the responsibility of whoever runs this."""
@@ -51,6 +56,17 @@ class FormatChanged(FetchError):
     """The site answered in a shape this version does not know."""
 
 
+def _urllib_post(url: str) -> tuple[int, bytes]:
+    req = urllib.request.Request(url, data=b"", method="POST", headers={"User-Agent": UA, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise FetchError(f"Network error: {e}") from e
+
+
 def _urllib(url: str) -> tuple[int, bytes]:
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
     try:
@@ -63,12 +79,23 @@ def _urllib(url: str) -> tuple[int, bytes]:
 
 
 class Http:
-    def __init__(self, pause: float = 1.0, transport: Callable[[str], tuple[int, bytes]] = _urllib) -> None:
+    def __init__(self, pause: float = 1.0, transport: Callable[[str], tuple[int, bytes]] = _urllib,
+                 poster: Callable[[str], tuple[int, bytes]] | None = None) -> None:
         self.pause, self.transport = pause, transport
+        # POST only goes out through the real transport (or one given on purpose): a fake GET transport must not reach the network.
+        self.poster = poster or (_urllib_post if transport is _urllib else None)
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> bytes:
-        url = HOST + path + (("?" + urllib.parse.urlencode(params)) if params else "")
-        status, body = self.transport(url)
+        return self._answer(*self.transport(HOST + path + (("?" + urllib.parse.urlencode(params)) if params else "")))
+
+    def post(self, path: str) -> Any:
+        assert self.poster is not None
+        try:
+            return json.loads(self._answer(*self.poster(HOST + path)))
+        except json.JSONDecodeError as e:
+            raise FormatChanged("The site did not answer with JSON.") from e
+
+    def _answer(self, status: int, body: bytes) -> bytes:
         time.sleep(self.pause)
         if status in (403, 429):
             raise Blocked(f"The site answered HTTP {status}. Stop and wait before trying again.")
@@ -129,6 +156,37 @@ def migrate_history_names(folder: Path) -> int:
                 f.rename(target)
                 n += 1
     return n
+
+
+def request_refresh(http: Http, profile: str, progress: Progress) -> str | None:
+    """Ask the site to re-read the profile from the game, as its Update button does, and wait until it has.
+    The site's own limit (one request per 30 minutes) is respected, never worked around. Returns a note when
+    nothing was refreshed, else None. Only a refusal (Blocked) stops the run: the cached history is still readable."""
+    if http.poster is None:
+        return None
+    try:
+        doc = http.json(f"/api/player/{profile}")
+        last = int(((doc or {}).get("player") or {}).get("last_update_request") or 0)
+        wait = REFRESH_COOLDOWN - (int(time.time()) - last)
+        if wait > 0:
+            return f"The site refreshed this profile {(REFRESH_COOLDOWN - wait) // 60} min ago; its limit allows the next refresh in {wait // 60 + 1} min."
+        progress({"stage": "refresh", "done": 0, "total": 1, "message": "Asking the site to refresh the profile"})
+        ans = http.post(f"/api/update-player/{profile}")
+        if not isinstance(ans, dict) or ans.get("status") != "success":
+            return f"The site did not queue a refresh: {(ans or {}).get('message') if isinstance(ans, dict) else 'unknown answer'}."
+        asked = int(ans.get("last_update_request") or time.time())
+        start = time.monotonic()
+        while time.monotonic() - start < REFRESH_WAIT:
+            time.sleep(REFRESH_POLL)
+            player = (http.json(f"/api/player/{profile}") or {}).get("player") or {}
+            progress({"stage": "refresh", "done": 0, "total": 1, "message": f"Waiting for the site ({int(time.monotonic() - start)} s)"})
+            if int(player.get("last_history_update") or 0) >= asked:
+                return None
+        return "The site queued a refresh but had not finished after 3 minutes; new matches may need another fetch later."
+    except Blocked:
+        raise
+    except FetchError as e:
+        return f"Refresh skipped: {e}"
 
 
 def fetch_history(http: Http, profile: str, mode: int, raw: Path, progress: Progress) -> list[str]:
@@ -214,11 +272,12 @@ def fetch_meta(http: Http, base: Path, progress: Progress) -> bool:
 
 
 def run(profile: str, mode: int, base: Path, limit: int | None = None, http: Http | None = None,
-        progress: Progress = lambda p: None, pace: str = "normal") -> dict[str, Any]:
+        progress: Progress = lambda p: None, pace: str = "normal", refresh: bool = True) -> dict[str, Any]:
     """Fetch, then import. Raises FetchError (or a subclass) with a message fit for the user."""
     http = http or Http(pause=PACES.get(pace, 1.0))
     raw = base / "raw"
     check_robots(http, "/api/matches/x")
+    refresh_note = request_refresh(http, profile, progress) if refresh else None
     uids = fetch_history(http, profile, mode, raw, progress)
     if not uids:
         raise FetchError("No matches found for this profile and mode.")
@@ -238,4 +297,4 @@ def run(profile: str, mode: int, base: Path, limit: int | None = None, http: Htt
     con.close()
     progress({"stage": "done", "done": 1, "total": 1, "message": f"Done: {rep.matches} matches in the database"})
     return {"listed": len(uids), "fetched": new, "imported": rep.matches, "with_history": rep.with_history,
-            "meta_note": meta_note}
+            "meta_note": meta_note, "refresh_note": refresh_note}

@@ -16,6 +16,7 @@ from typing import Any
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.utils import Secret
 
+from rivals_atlas.agents import usage_report
 from rivals_atlas.core import config
 
 DEFAULT = "ollama:granite4.1:3b"
@@ -26,7 +27,12 @@ def setting(base: Path | None = None) -> str:
 
 
 def make_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
-    """A fresh Haystack chat generator for 'provider:model'. Each agent gets its own."""
+    """A fresh Haystack chat generator for 'provider:model'. Each agent gets its own. Its usage goes to Meter."""
+    provider, _, model = (spec or setting()).partition(":")
+    return usage_report.wrap(_build_generator(spec, **generation_kwargs), provider, model)
+
+
+def _build_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
     provider, _, model = (spec or setting()).partition(":")
     if not model:
         raise ValueError("LLM setting must look like provider:model, for example ollama:granite4.1:3b")

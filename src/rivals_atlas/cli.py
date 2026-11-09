@@ -28,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     fe.add_argument("--mode", type=int, default=2, help="2 ranked, 1 quick play")
     fe.add_argument("--limit", type=int, default=None, help="at most this many new match documents")
     fe.add_argument("--pace", choices=["normal", "gentle"], default="gentle", help="gentle (default) = one request every 3 seconds, normal = one per second")
+    fe.add_argument("--no-refresh", action="store_true", help="do not ask the site to refresh the profile from the game first")
     fe.add_argument("--yes", action="store_true", help="confirm you have read the notice")
     gr = sub.add_parser("graph", help="rebuild hero synergy and counter edges from stored matches")
     gr.add_argument("--ladybug", action="store_true", help="also (re)build the LadybugDB projection (data/graph.lbdb)")
@@ -66,7 +67,7 @@ def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
         return 2
     config.save_settings({"profile_id": str(profile), "consent_at": st.get("consent_at") or time.time()}, base)
     try:
-        res = fetch.run(str(profile), a.mode, base, a.limit, pace=a.pace,
+        res = fetch.run(str(profile), a.mode, base, a.limit, pace=a.pace, refresh=not a.no_refresh,
                         progress=lambda p: print(f"[{p['stage']}] {p['message']}"))
     except fetch.FetchError as e:
         print(f"Stopped: {e}")
