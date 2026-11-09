@@ -9,6 +9,7 @@ The key stays in the environment; nothing here logs it.
 """
 from __future__ import annotations
 
+import importlib
 import os
 from pathlib import Path
 from typing import Any
@@ -18,10 +19,10 @@ from haystack.utils import Secret
 
 from rivals_atlas.core import config
 
-try:
-    from rivals_atlas.agents import usage_report
-except ImportError:  # an optional usage reporter, not part of this repository
-    usage_report = None  # type: ignore[assignment]
+try:  # an optional usage reporter module, not part of this repository
+    usage_report: Any = importlib.import_module("rivals_atlas.agents.usage_report")
+except ImportError:
+    usage_report = None
 
 DEFAULT = "ollama:granite4.1:3b"
 
