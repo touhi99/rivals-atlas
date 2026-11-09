@@ -16,8 +16,12 @@ from typing import Any
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.utils import Secret
 
-from rivals_atlas.agents import usage_report
 from rivals_atlas.core import config
+
+try:
+    from rivals_atlas.agents import usage_report
+except ImportError:  # an optional usage reporter, not part of this repository
+    usage_report = None  # type: ignore[assignment]
 
 DEFAULT = "ollama:granite4.1:3b"
 
@@ -27,9 +31,13 @@ def setting(base: Path | None = None) -> str:
 
 
 def make_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
-    """A fresh Haystack chat generator for 'provider:model'. Each agent gets its own. Its usage goes to Meter."""
+    """A fresh Haystack chat generator for 'provider:model'. Each agent gets its own.
+    If a usage reporter module is installed, its usage is reported through it."""
+    generator = _build_generator(spec, **generation_kwargs)
+    if usage_report is None:
+        return generator
     provider, _, model = (spec or setting()).partition(":")
-    return usage_report.wrap(_build_generator(spec, **generation_kwargs), provider, model)
+    return usage_report.wrap(generator, provider, model)
 
 
 def _build_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
