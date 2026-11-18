@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sqlite3
+import subprocess
 import threading
 import time
 from collections.abc import Iterator
@@ -261,6 +263,13 @@ def data_json(con=Con):
 
 
 UI_DIR = Path(__file__).parent / "ui"
+
+
+def _record_use() -> None:
+    """Note one page load in aimon (a local usage monitor) when it is installed; it keeps one per hour."""
+    exe = shutil.which("aimon") or str(Path.home() / ".local/bin/aimon")
+    if Path(exe).is_file():
+        subprocess.Popen([exe, "use", "rivals-atlas", "--via", "web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 app.mount("/assets", StaticFiles(directory=str(UI_DIR / "assets"), check_dir=False), name="ui-assets")
 
 
@@ -270,6 +279,7 @@ def spa(request: Request):
     if not index.exists():
         raise HTTPException(404, "The UI is not built yet: run ./scripts/setup.sh (or `npm run build` in frontend/)")
     from fastapi.responses import FileResponse
+    _record_use()
     return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
