@@ -21,7 +21,6 @@ from pathlib import Path
 
 LIBRARIES = ("libssl.3.dylib", "libcrypto.3.dylib")
 
-# LC_LOAD_DYLIB, LC_ID_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB
 _DYLIB_COMMANDS = {0xC, 0xD, 0x80000018, 0x8000001F, 0x20}
 _MH_MAGIC_64 = 0xFEEDFACF
 _FAT_MAGIC = b"\xca\xfe\xba\xbe"
@@ -74,8 +73,8 @@ def _prepare(vendor: Path) -> None:
         dest = package / name
         if not dest.exists():
             shutil.copy2(source, dest)
-            os.chmod(dest, 0o644)        # the Homebrew copy is read-only, and patching needs to write
-            _unquarantine(dest)         # the launcher's folder came out of a downloaded zip
+            os.chmod(dest, 0o644)
+            _unquarantine(dest)
         targets.append(dest)
     todo = [target for target in targets if _needs_patch(target)]
     if not todo:

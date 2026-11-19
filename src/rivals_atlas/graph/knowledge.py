@@ -17,7 +17,6 @@ from typing import Any
 
 from rivals_atlas.core import queries
 
-# node type -> where its identity comes from
 NODE_TYPES: dict[str, str] = {
     "Hero": "hero id (seed/heroes.json, match_players.hero_id)",
     "Map": "map id (seed/maps.json, matches.map_id); an id is one map in one mode",
@@ -28,7 +27,6 @@ NODE_TYPES: dict[str, str] = {
     "Player": "the site's player id (match_players.player_id; not copied into facts)",
 }
 
-# predicate -> (subject type, object type, meaning). The only edges the fact table accepts.
 PREDICATES: dict[str, tuple[str, str, str]] = {
     "HAS_MEMBER": ("TeamUp", "Hero", "this hero is part of the team-up; props: matches, win (percent)"),
     "SEEN_IN": ("TeamUp", "Season", "the site's figures for this team-up were read in this season"),

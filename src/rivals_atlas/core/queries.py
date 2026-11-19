@@ -23,12 +23,10 @@ from rivals_atlas.core.filters import Filter
 
 Rows = list[sqlite3.Row]
 
-# the per-group figures every tally carries: games, decided games, kills/deaths/assists sums
 AGG = ("COUNT(*) games, SUM(result='win') wins, SUM(result='loss') losses, SUM(result='draw') draws,"
        " SUM(k) k, SUM(d) d, SUM(a) a")
 
 
-# ---- the tracked player's own matches, grouped (statistics) -------------------------------------------------------
 
 def hero_tallies(con: sqlite3.Connection, f: Filter) -> Rows:
     c, a = f.cond()
@@ -111,7 +109,6 @@ def overview_counts(con: sqlite3.Connection) -> sqlite3.Row:
     return con.execute("SELECT COUNT(*) n, MIN(played_at) first, MAX(played_at) last, SUM(has_history) with_history FROM matches").fetchone()
 
 
-# ---- rows the pattern and finding searches work on ------------------------------------------------------------------
 
 def pattern_rows(con: sqlite3.Connection, f: Filter) -> Rows:
     c, a = f.cond()
@@ -162,7 +159,6 @@ def own_timeline(con: sqlite3.Connection, f: Filter) -> Rows:
                        f"WHERE p.is_self=1 AND {c} ORDER BY m.played_at", a).fetchall()
 
 
-# ---- option lists, counts, labels --------------------------------------------------------------------------------
 
 def map_ids_by_games(con: sqlite3.Connection, mode: int) -> list[int]:
     return [r[0] for r in con.execute(
@@ -202,7 +198,7 @@ def career_games(con: sqlite3.Connection) -> dict[int, int]:
 def player_alias(con: sqlite3.Connection, player_id: str) -> str | None:
     try:
         row = con.execute("SELECT name FROM player_names WHERE player_id=?", (player_id,)).fetchone()
-    except sqlite3.OperationalError:     # table missing in an old database
+    except sqlite3.OperationalError:
         return None
     return str(row[0]) if row else None
 
@@ -227,7 +223,6 @@ FIGURES = {
 }
 
 
-# ---- pages that need their own grouping ---------------------------------------------------------------------------
 
 def wins_losses_by_season(con: sqlite3.Connection, f: Filter) -> Rows:
     c, a = f.cond()
@@ -287,11 +282,7 @@ def graph_neighbour_edges(con: sqlite3.Connection, hero: int, rel: str, mode: in
 
 
 
-# ======================================================================================================================
-# The hero graph (derived table graph_edges) and the lenses over the tracked player's matches
-# ======================================================================================================================
 
-# which side the second hero is on; chosen by code from the relation name, never request text
 _SIDE = {"teammates": "t.camp = p.camp", "enemies": "t.camp != p.camp"}
 
 
@@ -380,9 +371,6 @@ def selected_own_pairs(con: sqlite3.Connection, rel: str) -> Rows:
         "GROUP BY p.hero_id, t.hero_id").fetchall()
 
 
-# ======================================================================================================================
-# The facts graph (derived table graph_facts)
-# ======================================================================================================================
 
 def insert_fact(con: sqlite3.Connection, row: tuple[Any, ...]) -> None:
     con.execute("INSERT OR REPLACE INTO graph_facts VALUES (?,?,?,?,?,?,?,?)", row)
@@ -396,9 +384,6 @@ def count_facts_from(con: sqlite3.Connection, source: str) -> int:
     return int(con.execute("SELECT COUNT(*) FROM graph_facts WHERE source=?", (source,)).fetchone()[0])
 
 
-# ======================================================================================================================
-# What the graph file is built from (graph/store.py) and checked against
-# ======================================================================================================================
 
 def sides_of_matches(con: sqlite3.Connection) -> Rows:
     return con.execute("SELECT match_uid, camp, hero_id, is_self FROM match_players").fetchall()
@@ -428,7 +413,7 @@ def own_results_by_mode(con: sqlite3.Connection) -> Rows:
                        "JOIN match_players p ON p.match_uid=m.match_uid AND p.is_self=1 ORDER BY m.mode_id, m.played_at").fetchall()
 
 
-REGULAR_GAMES = 5      # a teammate with at least this many games on the tracked player's side counts as a regular
+REGULAR_GAMES = 5
 
 
 def regular_teammates_per_match(con: sqlite3.Connection) -> dict[str, int]:
@@ -473,9 +458,6 @@ def database_file(con: sqlite3.Connection) -> str:
     return str(next(r[2] for r in con.execute("PRAGMA database_list") if r[1] == "main"))
 
 
-# ======================================================================================================================
-# Writes of the importer (ingest/importer.py)
-# ======================================================================================================================
 
 def known_seasons(con: sqlite3.Connection) -> Rows:
     return con.execute("SELECT played_at, season FROM matches WHERE season IS NOT NULL ORDER BY played_at").fetchall()

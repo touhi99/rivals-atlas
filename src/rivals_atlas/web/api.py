@@ -35,7 +35,7 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 
 def get_con() -> Iterator[sqlite3.Connection]:
     path = Path(os.environ.get("RIVALS_ATLAS_DB") or config.data_dir() / "rivals.db")
-    if not path.exists():           # first run: an empty database, so every page can render its empty state
+    if not path.exists():
         db.connect(path).close()
     con = db.connect_readonly(path)
     try:
@@ -208,7 +208,6 @@ def graph_redirect(request: Request):
     return RedirectResponse("/explore?view=graph&go=1" + ("&" + request.url.query if request.url.query else ""))
 
 
-# ---- fetching from the app: one background job at a time ---------------------------------------------------
 JOB: dict = {"state": "idle"}
 _lock = threading.Lock()
 
@@ -219,7 +218,7 @@ def _run_job(profile: str, mode: int, limit: int | None, pace: str) -> None:
     try:
         res = fetch.run(profile, mode, config.data_dir(), limit, progress=progress, pace=pace)
         JOB.update(state="done", result=res)
-        if res.get("fetched") and insights.load() is not None:   # only once insights were run by hand: the model is optional
+        if res.get("fetched") and insights.load() is not None:
             insights_routes.start_job()
     except fetch.FetchError as e:
         JOB.update(state="error", error=str(e))

@@ -79,7 +79,7 @@ def hero_map_grid(con: sqlite3.Connection, f: Filter, heroes: int = 12, maps: in
     columns are maps, each cell carries games, decided games, wins and the Wilson interval."""
     base = f.replace(hero=None, map_id=None)
     cells_by: dict[tuple[int, int], dict[str, int]] = {}
-    for raw in queries.hero_map_cells(con, base):                     # a map's ranked and quick play ids count as one map
+    for raw in queries.hero_map_cells(con, base):
         cell = cells_by.setdefault((raw["h"], names.canonical_map_id(raw["mp"])), {"games": 0, "wins": 0, "losses": 0})
         cell["games"] += raw["games"]; cell["wins"] += raw["wins"]; cell["losses"] += raw["losses"]
     cell_rows = [{"h": h, "mp": mp, **v} for (h, mp), v in cells_by.items()]

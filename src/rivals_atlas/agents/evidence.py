@@ -16,7 +16,7 @@ from typing import Any
 from rivals_atlas.agents import tools
 from rivals_atlas.analysis import stats
 
-RATE_TOLERANCE = 0.005   # a claim rounded to a whole percent still matches
+RATE_TOLERANCE = 0.005
 
 
 @dataclass
@@ -32,8 +32,8 @@ class Claim:
 
 @dataclass
 class Verdict:
-    status: str                        # "ok" | "insufficient" | "dropped"
-    text: str                          # what may be shown ("" when dropped)
+    status: str
+    text: str
     reason: str
     claim: Claim
     finding: tools.Finding | None = None
@@ -70,9 +70,9 @@ def check(con: sqlite3.Connection, claim: Claim, meta: dict[str, Any] | None = N
         return Verdict("insufficient", f"Not enough games to say (n={fresh.n}, at least {stats.MIN_GAMES} needed).",
                        "sample below the minimum", claim, fresh)
     text = claim.text.rstrip(". ")
-    if fresh.tool == "cypher_query":                       # n is a row count there, not a sample size
+    if fresh.tool == "cypher_query":
         return Verdict("ok", text + ".", "", claim, fresh)
-    if f"n={fresh.n}" not in text:                         # the model often writes it itself: do not repeat
+    if f"n={fresh.n}" not in text:
         text += f" (n={fresh.n}" + (f", 95% interval {fresh.lo:.0%} to {fresh.hi:.0%}" if fresh.lo is not None else "") + ")"
     return Verdict("ok", text + ".", "", claim, fresh)
 

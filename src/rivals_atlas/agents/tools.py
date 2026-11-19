@@ -19,19 +19,19 @@ from rivals_atlas.graph import network as graph
 from rivals_atlas.graph import store as lbug_store
 from rivals_atlas.ingest import meta as meta_mod
 
-POSITION_CAP = 5   # session position 5 means "5th game or later"
+POSITION_CAP = 5
 
 
 @dataclass
 class Finding:
     tool: str
     args: dict[str, Any]
-    n: int                                   # decided games for rates; items or points for the other tools
+    n: int
     wins: int | None = None
     rate: float | None = None
     lo: float | None = None
     hi: float | None = None
-    enough: bool = False                     # n reaches stats.MIN_GAMES (rates) or there is anything to report
+    enough: bool = False
     match_ids: list[str] = field(default_factory=list)
     items: list[dict[str, Any]] = field(default_factory=list)
     value: dict[str, Any] = field(default_factory=dict)
@@ -78,7 +78,7 @@ _ARG_LABELS: dict[str, Callable[[Any], str]] = {
 def describe_args(args: dict[str, Any]) -> str:
     """Readable summary of a tool call's arguments, skipping unset ones and the default ranked mode."""
     if args.get("season_from") is not None and args.get("season_from") == args.get("season_to"):
-        args = {k: v for k, v in args.items() if k not in ("season_from", "season_to")} | {"season": args["season_from"]}   # one season
+        args = {k: v for k, v in args.items() if k not in ("season_from", "season_to")} | {"season": args["season_from"]}
     parts = [_ARG_LABELS.get(k, lambda x, k=k: f"{k} {x}")(v) for k, v in args.items()
              if v is not None and not (k == "mode" and v == 2) and k not in ("ban_state", "min_n", "banned")]
     if args.get("banned") is not None:
@@ -211,7 +211,7 @@ def cypher_query(con: sqlite3.Connection, cypher: str) -> Finding:
         raise ValueError(f"the graph file {gpath.name} is not built; run `rivals-atlas graph --ladybug`")
     try:
         cols, rows, more = lbug_store.run_read(lbug_store.open_readonly(gpath), cypher)
-    except RuntimeError as e:                       # Cypher syntax or timeout: tell the model, it may retry
+    except RuntimeError as e:
         raise ValueError(f"the query failed: {e}") from e
     items = [dict(zip(cols, r, strict=True)) for r in rows]
     ids = [str(r[cols.index("uid")]) for r in rows if "uid" in cols]
@@ -283,7 +283,6 @@ def matchup_table(con: sqlite3.Connection, mode: int = 2, season_from: int | Non
     return Finding("matchup_table", args, len(items), enough=bool(items), items=items)
 
 
-# third field: True = higher is better, False = lower is better, None = neither (shown without a ranking)
 BENCH_METRICS = (("damage", "damage dealt", True), ("heal", "healing", True), ("taken", "damage taken", None),
                  ("k", "kills", True), ("d", "deaths", False), ("a", "assists", True), ("dmg10", "damage per 10 minutes", True))
 
@@ -304,7 +303,7 @@ def hero_benchmark(con: sqlite3.Connection, hero: int, mode: int = 2, season: in
     if not gpath.exists():
         raise ValueError(f"the graph file {gpath.name} is not built; run `rivals-atlas graph --ladybug`")
     lines = lbug_store.hero_lines(lbug_store.open_readonly(gpath), hero, mode, season)
-    lines = [ln for ln in lines if ln["damage"] or ln["heal"] or ln["taken"]]       # a line with no figures at all is missing data
+    lines = [ln for ln in lines if ln["damage"] or ln["heal"] or ln["taken"]]
     for ln in lines:
         ln["dmg10"] = ln["damage"] / ln["duration"] * 600 if ln["duration"] else 0.0
     mine = [ln for ln in lines if ln["is_self"]]

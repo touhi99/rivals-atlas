@@ -17,12 +17,11 @@ from rivals_atlas.graph import store as lbug_store
 
 BLOCKS = ["Night 0–6", "Morning 6–12", "Afternoon 12–18", "Evening 18–24"]
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-MATCH_LIMIT = 200      # rows shown in the match table
-TIMELINE_LIMIT = 400   # most recent matches drawn as dots
-RELATION_EDGES = 36    # strongest hero-map links drawn in the relations view
-NO_MAP = "No map data"   # the site's history list does not cover the newest matches yet
+MATCH_LIMIT = 200
+TIMELINE_LIMIT = 400
+RELATION_EDGES = 36
+NO_MAP = "No map data"
 
-# group name -> (title, label of one row)
 GROUPS: dict[str, tuple[str, Callable[[dict[str, Any]], str]]] = {
     "hero": ("Hero", lambda r: names.hero_name(r["hero"])),
     "role": ("Role", lambda r: names.ROLES.get(r["role"], "Unknown role")),
@@ -36,19 +35,19 @@ GROUPS: dict[str, tuple[str, Callable[[dict[str, Any]], str]]] = {
 
 
 def _tally(rows: list[dict[str, Any]], label: Callable[[dict[str, Any]], str]) -> list[dict[str, Any]]:
-    wl: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])      # wins, losses, all games
+    wl: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     for r in rows:
         x = wl[label(r)]
         x[0] += r["result"] == "win"
         x[1] += r["result"] == "loss"
         x[2] += 1
     out = [{"label": k, "games": g, **stats.rate(w, lo)} for k, (w, lo, g) in wl.items()]
-    return sorted(out, key=lambda x: (x["label"] == NO_MAP, -x["games"], x["label"]))      # unknown last
+    return sorted(out, key=lambda x: (x["label"] == NO_MAP, -x["games"], x["label"]))
 
 
 def relations(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Hero-to-map links among the matched matches: who played where, with games and wins. A small graph for the page."""
-    heroes: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0])      # games, wins, losses
+    heroes: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0])
     maps: dict[int, int] = defaultdict(int)
     links: dict[tuple[int, int], list[int]] = defaultdict(lambda: [0, 0, 0])
     for r in rows:
@@ -72,7 +71,7 @@ def relations(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-TREND_MIN = 8      # decided games a week needs before it gets a point on the trend line
+TREND_MIN = 8
 
 
 def panels(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -196,7 +195,7 @@ def _graph_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[dic
     key = (*stamp, tuple(sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in spec.items())))
     if key not in _CACHE:
         for k in [k for k in _CACHE if k[:2] != stamp]:
-            del _CACHE[k]                                  # a rebuilt graph file drops every old entry
+            del _CACHE[k]
         if len(_CACHE) >= 64:
             _CACHE.pop(next(iter(_CACHE)))
         conn = lbug_store.open_readonly(path)
@@ -211,7 +210,7 @@ def graph(con: sqlite3.Connection, spec: dict[str, Any], rel: str, min_n: int) -
 
 
 SPEC_INTS = ("mode", "season_from", "season_to", "map_id", "hero", "role", "block", "weekday", "session_pos", "regulars")
-SPEC_LISTS = ("banned", "not_banned")          # up to MAX_BANS heroes each: all banned / none banned
+SPEC_LISTS = ("banned", "not_banned")
 MAX_BANS = 3
 MAX_WITH = 3
 
@@ -237,7 +236,7 @@ def parse_spec(query: Any) -> tuple[dict[str, Any], str | None]:
 def choices(con: sqlite3.Connection, mode: int) -> dict[str, Any]:
     """Option lists for the form: every known hero, the maps and seasons present in this mode."""
     heroes = sorted(((int(k), v) for k, v in names._heroes().items()), key=lambda x: x[1])
-    maps = list(dict.fromkeys(names.canonical_map_id(m) for m in queries.map_ids_by_games(con, mode)))   # one entry per map name
+    maps = list(dict.fromkeys(names.canonical_map_id(m) for m in queries.map_ids_by_games(con, mode)))
     seasons = queries.seasons_in_mode(con, mode)
     return {"heroes": heroes, "maps": [(m, names.map_name(m)) for m in maps], "seasons": [(s, names.season_label(s)) for s in seasons],
             "roles": sorted(names.ROLES.items()), "blocks": list(enumerate(BLOCKS)), "weekdays": list(enumerate(WEEKDAYS)),
@@ -269,7 +268,7 @@ def chips(spec: dict[str, Any], group_by: str | None) -> list[dict[str, str]]:
         if k == "mode" or v is None:
             continue
         if k == "with":
-            continue                                     # chips for teammates are built by the caller, which knows their names
+            continue
         if k in SPEC_LISTS:
             for hero_id in v:
                 rest = [h for h in v if h != hero_id]

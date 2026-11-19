@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-MIN_TEAMUP = 200          # matches across all ranks before a team-up's win rate is shown
+MIN_TEAMUP = 200
 DAY = 86400
 _WRAPPERS = {"Reactive", "ShallowReactive", "Ref", "ShallowRef", "EmptyRef", "EmptyShallowRef", "NuxtError"}
 BUILD = re.compile(r'buildId:"([^"]+)"')

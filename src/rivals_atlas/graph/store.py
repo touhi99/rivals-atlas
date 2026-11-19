@@ -99,7 +99,6 @@ def build(con: sqlite3.Connection, path: Path | str, meta: dict[str, Any] | None
             "Season": (["n", "label"], [(s, names.season_label(s)) for s in seasons]),
             "Mode": (["id", "name"], [(m, stats.MODES.get(m, f"mode {m}")) for m in modes]),
         }
-        # derived match attributes: session position is numbered per mode over the tracked player's own matches
         own = queries.own_results_by_mode(con)
         pos: dict[str, int] = {}
         for mode in modes:
@@ -107,7 +106,6 @@ def build(con: sqlite3.Connection, path: Path | str, meta: dict[str, Any] | None
             for r, k in zip(rows, patterns.session_positions([r["played_at"] for r in rows]), strict=True):
                 pos[r["match_uid"]] = k
         self_info = {r["match_uid"]: (r["result"], r["add_score"]) for r in own}
-        # regular teammates (players kept in player_names) on the tracked player's side: 0 = no known regular, 1 = duo, 2 = trio ...
         regulars = queries.regular_teammates_per_match(con)
         comps = _comps(con)
         match_rows = []
@@ -178,7 +176,7 @@ def is_current(con: sqlite3.Connection) -> bool:
     try:
         res = _rows(open_readonly(path), "MATCH (m:Match) RETURN m.mode, count(m), sum(CASE WHEN m.season >= 0 THEN 1 ELSE 0 END), "
                     "sum(CASE WHEN m.map >= 0 THEN 1 ELSE 0 END), sum(CASE WHEN m.comp <> '' THEN 1 ELSE 0 END)", {})
-    except RuntimeError:                      # a file built before a schema change lacks the property: it is stale
+    except RuntimeError:
         return False
     return sql == {(r[0], r[1], r[2], r[3]) for r in res}
 
@@ -226,9 +224,9 @@ def _where(mode: int = 2, season: int | None = None, season_from: int | None = N
     `session_pos` 5 means the fifth game or later; `ban_state` is 'present' or 'absent' for hero `banned`."""
     if ban_state not in ("present", "absent"):
         raise ValueError("ban_state must be 'present' or 'absent'")
-    where: list[str] = ["m.mode = $mode"] if mode else ["m.mode >= 0"]          # mode 0 means every mode
+    where: list[str] = ["m.mode = $mode"] if mode else ["m.mode >= 0"]
     params: dict[str, Any] = {"mode": mode} if mode else {}
-    if map_id is not None:                                  # a map is the same map in ranked and in quick play
+    if map_id is not None:
         where.append("m.map IN $maps")
         params["maps"] = list(names.same_map_ids(map_id))
     for clause, key, value in (("m.season = $season", "season", season), ("m.season >= $season_from", "season_from", season_from),
@@ -248,12 +246,12 @@ def _where(mode: int = 2, season: int | None = None, season_from: int | None = N
     if session_pos is not None:
         where.append("m.session_pos >= $pos" if session_pos >= 5 else "m.session_pos = $pos")
         params["pos"] = session_pos
-    bans = [banned] if isinstance(banned, int) else list(banned or [])            # every one of these was banned ...
+    bans = [banned] if isinstance(banned, int) else list(banned or [])
     for i, hero_id in enumerate(bans):
         clause = _BAN_EXISTS.replace("$ban", f"$ban{i}")
         where.append(clause if ban_state == "present" else f"NOT {clause}")
         params[f"ban{i}"] = hero_id
-    for i, hero_id in enumerate(not_banned or []):                               # ... and none of these
+    for i, hero_id in enumerate(not_banned or []):
         where.append("NOT " + _BAN_EXISTS.replace("$ban", f"$nban{i}"))
         params[f"nban{i}"] = hero_id
     return " AND ".join(where), params
@@ -293,7 +291,7 @@ def hero_lines(conn: Any, hero: int, mode: int = 2, season: int | None = None) -
     """Every player line (all 12 players of every match) on one hero, with match length: the material for comparing the tracked
     player with everybody else on that hero."""
     where, params = "h.id = $hero", {"hero": hero}
-    if mode:                                   # 0 means every mode
+    if mode:
         where += " AND m.mode = $mode"
         params["mode"] = mode
     if season is not None:
@@ -313,7 +311,6 @@ def pattern_bans(conn: Any, **spec: Any) -> list[dict[str, Any]]:
     return [{"uid": r[0], "result": r[1], "banned_hero": r[2]} for r in _rows(conn, q, params)]
 
 
-# --- free-form read queries (used by the Cartographer agent) -------------------------------------------------------------
 
 GLOSSARY = """Meaning of the data:
 - One Match node per game. Match.mode: 1 quick play, 2 ranked. Match.ts is a unix time; block = hour // 6 (0 night .. 3 evening);

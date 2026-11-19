@@ -20,9 +20,9 @@ from rivals_atlas.ingest import meta
 from rivals_atlas.web.guard import require_app_header
 
 router = APIRouter()
-MAX_JOBS = 20            # finished jobs kept in memory
+MAX_JOBS = 20
 MAX_QUESTION = 500
-AGENT = "cartographer"   # direct: the Coordinator step costs two more model calls (about 7 s)
+AGENT = "cartographer"
 JOBS: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
 

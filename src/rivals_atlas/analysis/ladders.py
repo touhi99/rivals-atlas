@@ -12,9 +12,9 @@ from __future__ import annotations
 import statistics
 from typing import Any
 
-TOL = 1.6          # points: a chain continues when start score == previous end score, within this
+TOL = 1.6
 MIN_MATCHES = 3
-MIN_GAP = 3        # tiers
+MIN_GAP = 3
 
 
 def assign(points: list[dict[str, Any]]) -> list[str]:
@@ -42,7 +42,6 @@ def assign(points: list[dict[str, Any]]) -> list[str]:
             if c is main or len(c["idx"]) < MIN_MATCHES:
                 continue
             t0, t1 = points[c["idx"][0]]["t"], points[c["idx"][-1]]["t"]
-            # the main ladder was paused and resumed around this chain: it has matches before AND after it
             interleaved = (any(points[i]["t"] < t0 for i in main["idx"]) and any(points[i]["t"] > t1 for i in main["idx"]))
             gap = abs(statistics.median(points[i]["level"] for i in c["idx"]) - main_levels)
             if interleaved and gap >= MIN_GAP:

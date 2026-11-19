@@ -19,7 +19,7 @@ def main_hero(heroes: list[dict[str, Any]], fallback: int) -> int:
     """The hero with the most play time. Ties go to the later list entry."""
     if not heroes:
         return fallback
-    best = max(reversed(heroes), key=lambda h: h.get("play_time") or 0)   # on a tie the later line wins
+    best = max(reversed(heroes), key=lambda h: h.get("play_time") or 0)
     return int(best["hero_id"])
 
 

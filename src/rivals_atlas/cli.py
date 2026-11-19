@@ -181,10 +181,10 @@ COMMANDS: dict[str, Callable[[argparse.Namespace, Path], int]] = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    config.load_env()                      # .env in the working directory: model key and settings, never printed
+    config.load_env()
     a = build_parser().parse_args(argv)
     try:
-        openssl_fix.ensure()               # macOS: make LadybugDB loadable before anything imports it
+        openssl_fix.ensure()
     except openssl_fix.FixError as e:
         print(f"Rivals Atlas cannot start: {e}", file=sys.stderr)
         return 1

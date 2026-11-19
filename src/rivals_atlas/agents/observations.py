@@ -14,16 +14,16 @@ from typing import Any
 
 from rivals_atlas.agents import evidence, tools
 
-MAX_SIMILAR_WIDTH = 0.2          # 95% range width: about 100 games
+MAX_SIMILAR_WIDTH = 0.2
 
 
 @dataclass
 class Observation:
     text: str
     relation: str
-    badge: str                      # what the check established, in words
+    badge: str
     findings: list[tools.Finding]
-    agent: str = ""                 # which specialist wrote it
+    agent: str = ""
 
 
 def _ranged(*fs: tools.Finding) -> str | None:
@@ -67,7 +67,6 @@ def _meta(sign: int) -> Callable[[tools.Finding], str | None]:
     return test
 
 
-# relation -> (evidence items needed, test, badge)
 RELATIONS: dict[str, tuple[int, Callable[..., str | None], str]] = {
     "higher": (2, _higher, "clear difference"),
     "lower": (2, _lower, "clear difference"),

@@ -17,7 +17,7 @@ from rivals_atlas.core import config, db, names, queries
 
 FILE = "insights.json"
 SCOPES = {0: ("insights.json", "Ranked and quick play", None), 2: ("insights_ranked.json", "Ranked play", "ranked"),
-          1: ("insights_quick.json", "Quick play", "quick play")}      # mode id -> saved file, label, the mode name on evidence rows
+          1: ("insights_quick.json", "Quick play", "quick play")}
 QUESTION = ("What stands out in the player's matches? Ask the coach about heroes against each other, against 50% and against the "
             "the meta average, in ranked and in quick play, and ask the tilt guard whether results change with the game number in a "
             "session. Ask the squad_synergy agent whether results differ with a regular teammate on the player's side, and the "
@@ -31,7 +31,7 @@ def load(base: Path | None = None, mode: int = 0) -> dict[str, Any] | None:
     p = path(base, mode)
     data = json.loads(p.read_text()) if p.exists() else None
     if data and "observations" not in data:
-        return None                                       # an older format; run the agents again
+        return None
     return data
 
 
@@ -91,10 +91,10 @@ def generate(db_path: Path | str, base: Path, meta: dict[str, Any] | None = None
     found: list[dict[str, Any]] = [{"text": o.text, "relation": o.relation, "badge": o.badge, "agent": o.agent, "evidence": [_row(f) for f in o.findings]}
                                    for o in ledger.observations]
     dropped = list(ledger.dropped)
-    alike = [o for o in found if o["relation"] == "similar"]       # "no clear difference" is a failed insight, not a finding
+    alike = [o for o in found if o["relation"] == "similar"]
     dropped += [f"no difference: {o['text']}" for o in alike]
     found = [o for o in found if o["relation"] != "similar"]
-    if only is not None:                                  # the app enforces the scope, whatever the model chose to look at
+    if only is not None:
         kept = [o for o in found if all(e["mode"] == only for e in o["evidence"])]
         dropped += [f"outside {only}: {o['text']}" for o in found if o not in kept]
         found = kept

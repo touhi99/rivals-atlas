@@ -90,8 +90,6 @@ def connect(path: Path | str) -> sqlite3.Connection:
 
 
 def connect_readonly(path: Path | str) -> sqlite3.Connection:
-    # One connection per request, used one call at a time; FastAPI may run the dependency and the handler on different
-    # worker threads, which sqlite3 refuses by default.
     con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
     con.row_factory = sqlite3.Row
     return con

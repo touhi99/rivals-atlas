@@ -12,17 +12,17 @@ from urllib.parse import urlencode
 
 @dataclass(frozen=True)
 class Filter:
-    mode: int = 2                       # 2 ranked, 1 quick play, 0 both
+    mode: int = 2
     season_from: int | None = None
     season_to: int | None = None
     hero: int | None = None
     map_id: int | None = None
-    with_players: tuple[str, ...] = field(default_factory=tuple)   # teammates who must be on the tracked player's side
+    with_players: tuple[str, ...] = field(default_factory=tuple)
 
     def cond(self) -> tuple[str, list[Any]]:
         parts: list[str] = []
         args: list[Any] = []
-        if self.mode:                   # 0 means every mode
+        if self.mode:
             parts.append("m.mode_id = ?")
             args.append(self.mode)
         if self.season_from is not None:
@@ -33,16 +33,16 @@ class Filter:
             parts.append("p.hero_id = ?"); args.append(self.hero)
         if self.map_id is not None:
             from rivals_atlas.core.names import (
-                same_map_ids,  # late: names uses queries, which uses this module
+                same_map_ids,
             )
-            ids = same_map_ids(self.map_id)                           # a map is the same map in ranked and in quick play
+            ids = same_map_ids(self.map_id)
             parts.append(f"m.map_id IN ({','.join('?' * len(ids))})")
             args.extend(ids)
         for h in self.with_players:
             parts.append("EXISTS (SELECT 1 FROM match_players t WHERE t.match_uid = p.match_uid "
                          "AND t.player_id = ? AND t.camp = p.camp)")
             args.append(h)
-        return " AND ".join(parts) or "1=1", args       # no condition at all (mode 0, nothing else chosen)
+        return " AND ".join(parts) or "1=1", args
 
     @property
     def active(self) -> bool:

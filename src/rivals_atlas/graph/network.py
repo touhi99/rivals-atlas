@@ -17,7 +17,7 @@ from rivals_atlas.core import queries
 
 PAIRS = {
     "SYNERGY": "a.camp = b.camp AND a.hero_id < b.hero_id",
-    "COUNTER": "a.camp != b.camp AND a.hero_id != b.hero_id",   # directed: wins are a's
+    "COUNTER": "a.camp != b.camp AND a.hero_id != b.hero_id",
 }
 
 
@@ -66,7 +66,6 @@ def lens(con: sqlite3.Connection, f: Any, rel: str = "teammates", min_n: int = 1
     edges: list[dict[str, Any]] = []
     map_games: dict[int, Any] = {}
     if rel == "maps":
-        # heroes and maps as nodes; a map node has a negative id so it can never collide with a hero id
         map_games = {m["map_id"]: m for m in map_stats(con, f)}
         for r in queries.hero_map_links(con, f, min_n):
             lo, hi = wilson(r["w"], r["n"])
@@ -83,12 +82,12 @@ def lens(con: sqlite3.Connection, f: Any, rel: str = "teammates", min_n: int = 1
     for e in edges:
         e["rate"] = e["wins"] / e["n"]
     linked = {e["source"] for e in edges} | {e["target"] for e in edges}
-    ids = linked | queries.all_hero_ids(con)          # every hero stays findable
+    ids = linked | queries.all_hero_ids(con)
     if rel == "maps":
         ids |= {-m for m in queries.map_ids_in_mode(con, f.mode)}
     nodes = []
     for h in sorted(ids):
-        if h < 0:                                   # a map node
+        if h < 0:
             mg = map_games.get(-h)
             nodes.append({"id": h, "kind": "map", "games": mg["games"] if mg else 0, "wins": mg["wins"] if mg else 0,
                           "n": mg["n"] if mg else 0, "rate": mg["rate"] if mg else None, "lo": mg["lo"] if mg else None,
@@ -114,7 +113,7 @@ def lens_for_matches(con: sqlite3.Connection, rows: list[dict[str, Any]], rel: s
             x[1] += res == "win"
             x[2] += res == "loss"
         return out
-    own: dict[int, list[int]] = tally([(r["hero"], None, r["result"]) for r in rows])           # games, wins, losses
+    own: dict[int, list[int]] = tally([(r["hero"], None, r["result"]) for r in rows])
     maps: dict[int, list[int]] = tally([(r["map"], None, r["result"]) for r in rows if r["map"] >= 0])
     edges: list[dict[str, Any]] = []
 
@@ -141,7 +140,7 @@ def lens_for_matches(con: sqlite3.Connection, rows: list[dict[str, Any]], rel: s
             for pr in queries.selected_own_pairs(con, rel):
                 add(pr["h"], pr["o"], pr["w"], pr["n"], rel)
     linked = {e["source"] for e in edges} | {e["target"] for e in edges}
-    ids = linked | queries.all_hero_ids(con)          # every hero stays findable
+    ids = linked | queries.all_hero_ids(con)
     if rel == "maps":
         ids |= {-m for m in maps}
 

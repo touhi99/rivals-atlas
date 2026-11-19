@@ -18,7 +18,7 @@ MAX_LIMIT = 1000
 
 
 def _con():
-    from rivals_atlas.web.api import get_con  # late: api.py includes this router
+    from rivals_atlas.web.api import get_con
     yield from get_con()
 
 

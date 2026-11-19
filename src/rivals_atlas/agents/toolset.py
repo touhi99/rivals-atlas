@@ -51,7 +51,7 @@ class RivalsToolset(Toolset):
         def run(kw: dict[str, Any]) -> str:
             try:
                 f = tools.run(db.connect_readonly(self.db_path), name, kw, self.meta)
-            except (KeyError, TypeError, ValueError) as e:       # a bad argument is the model's to read and retry
+            except (KeyError, TypeError, ValueError) as e:
                 return json.dumps({"error": str(e)})
             if self.ledger is not None:
                 self.ledger.add_finding(f)
@@ -66,4 +66,4 @@ class RivalsToolset(Toolset):
     def from_dict(cls, data: dict[str, Any]) -> RivalsToolset:
         d = data["data"]
         path = Path(d["db_path"])
-        return cls(path, tuple(d["names"]), meta_mod.load(path.parent))     # the meta file sits beside the database
+        return cls(path, tuple(d["names"]), meta_mod.load(path.parent))

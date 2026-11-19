@@ -24,16 +24,16 @@ from rivals_atlas.core.filters import Filter
 from rivals_atlas.graph import store as lbug_store
 
 PROMPTS = Path(__file__).parent.parent / "prompts"
-MAX_STEPS = 12   # per agent run: a cap on model calls, so one question cannot loop and run up cost
+MAX_STEPS = 12
 
 
 def prompt(name: str, insights: bool = False) -> str:
-    if insights:                                     # the insights run: observations the app checks, not claims
+    if insights:
         return (PROMPTS / f"insights_{name}.md").read_text().strip() + "\n\n" + (PROMPTS / "_rules_insights.md").read_text().strip()
     text = (PROMPTS / f"{name}.md").read_text().strip()
-    if name == "cartographer":                       # the schema is generated, never copied by hand
+    if name == "cartographer":
         text += "\n\n" + lbug_store.schema_prompt()
-    rules = "_rules_cartographer.md" if name == "cartographer" else "_rules.md"      # it has no claim tool, so no claim rule
+    rules = "_rules_cartographer.md" if name == "cartographer" else "_rules.md"
     return text + "\n\n" + (PROMPTS / rules).read_text().strip()
 
 
@@ -72,7 +72,7 @@ class Ledger:
     findings: list[tools.Finding] = field(default_factory=list)
     verdicts: list[evidence.Verdict] = field(default_factory=list)
     observations: list[obs.Observation] = field(default_factory=list)
-    dropped: list[str] = field(default_factory=list)          # why an observation was thrown away
+    dropped: list[str] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def snapshot(self) -> tuple[list[tools.Finding], list[evidence.Verdict]]:
@@ -99,7 +99,7 @@ class Ledger:
     def report(self) -> str:
         """Two parts, both built from data: what the tools returned (printed from the numbers themselves, so it holds
         even when a small model never records a claim) and the model's statements that passed the evidence check."""
-        results = list(dict.fromkeys(f.describe() for f in self.findings))      # unique, in order
+        results = list(dict.fromkeys(f.describe() for f in self.findings))
         checked = self._checked()
         parts = []
         if results:
@@ -160,7 +160,7 @@ SPECIALISTS = {
 }
 
 
-INSIGHTS_ONLY = ("squad_synergy", "matchup_advisor")      # their prompts exist only for the insights run
+INSIGHTS_ONLY = ("squad_synergy", "matchup_advisor")
 
 
 def squad_context(db_path: Path | str, top: int = 6) -> str:
@@ -176,8 +176,6 @@ def squad_context(db_path: Path | str, top: int = 6) -> str:
 def specialist(name: str, chat_generator: Any, db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None,
                insights: bool = False) -> Agent:
     _, tool_names = SPECIALISTS[name]
-    # The Cartographer's rows are printed from the data by `Ledger.report`; asking the model to also write one claim per row
-    # cost about 6 s of output tokens for nothing, so it has no claim tool.
     if insights:
         extra = [observation_tool(db_path, ledger, meta, name)]
     else:
@@ -202,10 +200,10 @@ def coordinator(chat_generators: dict[str, Any], db_path: Path | str, ledger: Le
 
 @dataclass
 class Answer:
-    framing: str       # the model's own words: not checked
-    report: str        # checked claims only
+    framing: str
+    report: str
     ledger: Ledger
-    unverified: list[str] = field(default_factory=list)   # numbers in the model's text that no tool result contains
+    unverified: list[str] = field(default_factory=list)
 
 
 def ask(question: str, chat_generators: dict[str, Any], db_path: Path | str, meta: dict[str, Any] | None = None,

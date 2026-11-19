@@ -15,7 +15,7 @@ from rivals_atlas.analysis.stats import wilson
 from rivals_atlas.core import names, queries
 from rivals_atlas.core.filters import Filter
 
-SESSION_GAP = 90 * 60   # seconds between matches that starts a new session
+SESSION_GAP = 90 * 60
 
 
 def session_positions(times: list[int]) -> list[int]:
@@ -43,7 +43,7 @@ def _card(pid: str, title: str, note: str, groups: dict[str, list[int]], order: 
     for k in keys:
         w, n = groups[k]
         if n >= MIN_N and N - n >= MIN_N:
-            p = two_prop_p(w, n, W - w, N - n) * len(keys)        # Bonferroni across this card's buckets
+            p = two_prop_p(w, n, W - w, N - n) * len(keys)
             if best is None or p < best[0]:
                 best = (min(p, 1.0), k, w / n, (W - w) / (N - n), n)
     lead, detail, lead_label = "", "all buckets are close to the overall rate", ""
@@ -81,7 +81,6 @@ def compute(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     cards.append(_card("dow", "Day of the week", "local time of this computer",
                        tally(lambda i, r: days[datetime.fromtimestamp(r["played_at"]).weekday()]), days))
 
-    # session position: a new session starts after a gap of SESSION_GAP seconds (any result, draws included)
     pos, sessions = {}, []
     for r, k in zip(rows, session_positions([r["played_at"] for r in rows]), strict=True):
         if k == 1:
@@ -92,7 +91,6 @@ def compute(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     cards.append(_card("sess", "Game number in a session", f"a gap of {SESSION_GAP // 3600}h30 starts a new session",
                        tally(lambda i, r: lab(pos[r["match_uid"]])), ["1", "2", "3", "4", "5+"]))
 
-    # result right after a streak
     streak = []
     run = 0
     for r in dec:
@@ -112,7 +110,6 @@ def compute(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     cards.append(_card("season", "Season by season", "win rate inside each season",
                        tally(lambda i, r: names.season_label(r["season"]) if r["season"] is not None else None),
                        [names.season_label(s) for s in seasons]))
-    # party: every combination of the two most frequent teammates that was played, named
     sq = stats.squad(con, f.replace(with_players=()))[:2]
     if sq:
         label = {s_["player_id"]: s_["player"] for s_ in sq}
@@ -121,7 +118,6 @@ def compute(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
                   for c_ in combos}
         cards.append(_card("party", "Who is on the team", "the two most frequent teammates and every combination played",
                            groups, list(groups)))
-    # facts
     facts: list[dict[str, Any]] = []
     hours = sum(r["duration"] or 0 for r in rows) / 3600
     days_active = len({datetime.fromtimestamp(r["played_at"]).date() for r in rows})
@@ -135,7 +131,6 @@ def compute(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     facts.append({"kind": "streak", "label": "Longest streaks", "value": f"{best_w} wins · {best_l} losses",
                   "sub": f"now: {cw} win{'s' if cw != 1 else ''}" if cw else f"now: {cl} loss{'es' if cl != 1 else ''}",
                   "data": {"best_win": best_w, "best_loss": best_l, "now": cw or cl, "now_result": "win" if cw else "loss"}})
-    # rank points only exist in ranked; quick play carries a hidden rating that is not shown as a rank
     gains = [r["add_score"] for r in rows if r["mode_id"] == 2 and r["result"] == "win" and r["add_score"] is not None]
     losses = [r["add_score"] for r in rows if r["mode_id"] == 2 and r["result"] == "loss" and r["add_score"] is not None]
     if gains and losses:
@@ -156,7 +151,7 @@ def compute(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     heat: dict[tuple[int, int], list[int]] = {}
     for r in rows:
         t = datetime.fromtimestamp(r["played_at"])
-        x = heat.setdefault((t.weekday(), t.hour // 4), [0, 0, 0])     # games, decided games, wins
+        x = heat.setdefault((t.weekday(), t.hour // 4), [0, 0, 0])
         x[0] += 1
         x[1] += r["result"] in ("win", "loss")
         x[2] += r["result"] == "win"

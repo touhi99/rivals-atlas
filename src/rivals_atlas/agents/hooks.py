@@ -11,7 +11,7 @@ from haystack.hooks import Hook, HookPoint, hook
 from rivals_atlas.agents import evidence
 
 STATE_SCHEMA = {"unverified_numbers": {"type": list[str]}}
-HOOKS: dict[HookPoint, list[Hook]] = {}      # filled below: hook point -> hooks
+HOOKS: dict[HookPoint, list[Hook]] = {}
 
 
 @hook

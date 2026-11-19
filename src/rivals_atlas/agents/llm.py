@@ -19,7 +19,7 @@ from haystack.utils import Secret
 
 from rivals_atlas.core import config
 
-try:  # an optional usage reporter module, not part of this repository
+try:
     usage_report: Any = importlib.import_module("rivals_atlas.agents.usage_report")
 except ImportError:
     usage_report = None
@@ -55,7 +55,7 @@ def _build_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
                                    generation_kwargs={"temperature": 0, **generation_kwargs})
     if provider == "anthropic":
         from haystack_integrations.components.generators.anthropic import AnthropicChatGenerator
-        return AnthropicChatGenerator(model=model, generation_kwargs=generation_kwargs or None)   # this SDK takes no temperature
+        return AnthropicChatGenerator(model=model, generation_kwargs=generation_kwargs or None)
     raise ValueError(f"unknown LLM provider {provider!r}; use ollama, lmstudio or anthropic")
 
 

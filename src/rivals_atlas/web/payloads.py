@@ -65,7 +65,7 @@ def heroes(con: sqlite3.Connection, f: Filter, meta_ctx: dict[str, Any]) -> dict
     life = career(con)
     rows = []
     for hid in sorted({int(k) for k in names._heroes()} | set(played)):
-        if hid == 0:                       # a game left before any hero was played is not a hero
+        if hid == 0:
             continue
         p = played.get(hid)
         mm = meta.for_hero(m, hid, group) if m else None
@@ -138,7 +138,7 @@ def hero_detail(con: sqlite3.Connection, f: Filter, hero_id: int, meta_ctx: dict
         bench_out: dict[str, Any] | None = {
             "items": bench.items, "tracked_matches": bench.value["tracked_matches"], "other_lines": bench.value["other_lines"],
             "rate": bench.rate, "n": bench.n, "others_rate": bench.value["others_rate"], "enough": bench.enough}
-    except ValueError:                      # the graph file is not built yet
+    except ValueError:
         bench_out = None
     m, group = meta_ctx["meta"], meta_ctx["meta_group"]
     mg, ma = (meta.for_hero(m, hero_id, group), meta.for_hero(m, hero_id, "all")) if m else (None, None)
@@ -161,7 +161,7 @@ def patterns(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     return {**d, "days": days, "mode_n": mode_n, "mode_label": {**stats.MODES, 0: "all"}.get(f.mode, "")}
 
 
-MAX_PARTY = 5          # the table has 2^n rows, so more than this stops being readable
+MAX_PARTY = 5
 
 
 def squad(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:

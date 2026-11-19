@@ -28,11 +28,11 @@ UA = "rivals-atlas/0.1 (personal hobby project; one request every few seconds)"
 PAGE = 20
 Progress = Callable[[dict[str, Any]], None]
 
-REFRESH_COOLDOWN = 1800   # seconds the site's own Update button stays disabled after a request
-REFRESH_POLL = 10.0       # seconds between checks while waiting for the site to finish
-REFRESH_WAIT = 180.0      # longest wait for one refresh
+REFRESH_COOLDOWN = 1800
+REFRESH_POLL = 10.0
+REFRESH_WAIT = 180.0
 
-PACES = {"normal": 1.0, "gentle": 3.0}   # seconds between requests
+PACES = {"normal": 1.0, "gentle": 3.0}
 
 NOTICE = """What this does
 - Reads one public player profile from rivalsmeta.com, using the endpoints that site's own pages use.
@@ -82,7 +82,6 @@ class Http:
     def __init__(self, pause: float = 1.0, transport: Callable[[str], tuple[int, bytes]] = _urllib,
                  poster: Callable[[str], tuple[int, bytes]] | None = None) -> None:
         self.pause, self.transport = pause, transport
-        # POST only goes out through the real transport (or one given on purpose): a fake GET transport must not reach the network.
         self.poster = poster or (_urllib_post if transport is _urllib else None)
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> bytes:
@@ -198,7 +197,7 @@ def fetch_history(http: Http, profile: str, mode: int, raw: Path, progress: Prog
     if vis and not vis.get("match_history", True):
         raise FetchError("This profile hides its match history, so there is nothing to fetch.")
     raw.mkdir(parents=True, exist_ok=True)
-    (raw / "player.json").write_text(json.dumps(doc))      # kept as received: it may hold platform and visibility info
+    (raw / "player.json").write_text(json.dumps(doc))
     top = current_season(doc)
     if top == 0:
         raise FetchError("No seasons found for this profile. Check the id, or the profile may be private.")
@@ -206,15 +205,12 @@ def fetch_history(http: Http, profile: str, mode: int, raw: Path, progress: Prog
     out.mkdir(parents=True, exist_ok=True)
     migrate_history_names(out)
     uids: list[str] = []
-    # A season's later pages may come from disk only after a run has read them while a newer season already existed:
-    # from then on nothing can be added to it. Until then (the current season, or a season that was still running at
-    # the last run) every page is read again, because new matches shift all pages.
     marker = raw / f"final_seasons_m{mode}.json"
     final: set[int] = set(json.loads(marker.read_text())) if marker.exists() else set()
     for done, season in enumerate(range(top, 0, -1), 1):
         skip = 0
         while True:
-            f = out / f"m{mode}_s{season}_skip{skip}.json"      # the mode is part of the name: modes never share a page
+            f = out / f"m{mode}_s{season}_skip{skip}.json"
             cached = json.loads(f.read_text()) if f.exists() and skip != 0 and season in final else None
             if isinstance(cached, list) and all(m.get("game_mode_id") == mode for m in cached):
                 page = cached
@@ -288,7 +284,7 @@ def run(profile: str, mode: int, base: Path, limit: int | None = None, http: Htt
     except Blocked:
         raise
     except FetchError as e:
-        meta_note = str(e)                         # the hero meta is a bonus: a changed page must not lose the matches
+        meta_note = str(e)
     progress({"stage": "import", "done": 0, "total": 1, "message": "Importing"})
     con = db.connect(base / "rivals.db")
     rep = import_folder(con, raw, None)
