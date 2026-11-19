@@ -1,6 +1,6 @@
 # Launchers
 
-The files people download instead of using a terminal. Each release ships two zips; each zip
+Launchers for users without a terminal. Each release ships two zips; each zip
 carries the built wheel and a launcher. The launcher prefers the published package (so it stays
 current) and falls back to the wheel in its own folder when the package is not on PyPI yet or
 the index cannot be reached.
@@ -19,8 +19,7 @@ Apache-2.0).
 
 ## Where to publish
 
-**PyPI, at https://pypi.org — not GitHub Packages.** GitHub Packages only hosts Maven, NuGet,
-RubyGems, npm and container images; it has no Python registry. A Python package goes to PyPI.
+PyPI (https://pypi.org). GitHub Packages has no Python registry.
 
 ### One-time PyPI setup (trusted publishing, no token)
 
@@ -40,16 +39,11 @@ RubyGems, npm and container images; it has no Python registry. A Python package 
 The first successful run creates the `rivals-atlas` project on PyPI. After that, publishing is
 just a tag push.
 
-If you would rather use a token than trusted publishing, create an API token on PyPI and add it
-to the repository as `PYPI_API_TOKEN`, then replace the `pypi` job with `uv publish` and
-`UV_PUBLISH_TOKEN`.
+A token can replace trusted publishing: create an API token on PyPI, add it to the repository as `PYPI_API_TOKEN`, and change the `pypi` job to `uv publish` with `UV_PUBLISH_TOKEN`.
 
-### Until PyPI access is restored
+### Without PyPI
 
-Leave `PUBLISH_TO_PYPI` unset. The `pypi` job is skipped, the release still succeeds, and the
-launchers install from the wheel inside each zip. When the account is usable again, add the
-variable and push the next tag; the same launchers then switch to the published version on
-their next run, with no new download needed.
+With `PUBLISH_TO_PYPI` unset the `pypi` job is skipped and the launchers install from the wheel inside each zip. Setting the variable and pushing the next tag makes the same launchers use the published version on their next run.
 
 ### Making a release
 
@@ -70,8 +64,7 @@ libraries are used instead. It runs before anything imports LadybugDB and is a n
 
 ## Trying the launchers
 
-The Windows file needs a Windows machine to test. On a Mac you can try the macOS launcher
-before any release: copy it next to a built wheel and a matching `openssl/$(uname -m)` folder
+The Windows launcher needs a Windows machine to test. The macOS launcher can be tried before a release: copy it next to a built wheel and a matching `openssl/$(uname -m)` folder
 and run the copy, which exercises the fallback path.
 
 ```
@@ -84,4 +77,4 @@ cp /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib \
 cp "installers/macos/Start Rivals Atlas.command" /tmp/macos-launcher/
 ```
 
-For day-to-day work use the source checkout instead: `./scripts/setup.sh && uv run rivals-atlas serve --open`.
+For development use the source checkout: `./scripts/setup.sh && uv run rivals-atlas serve --open`.
