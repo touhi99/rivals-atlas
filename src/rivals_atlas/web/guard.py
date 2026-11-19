@@ -1,4 +1,5 @@
 """One check for every POST route: the app's own pages send this header, a form on another site cannot."""
+
 from fastapi import HTTPException, Request
 
 HEADER = "x-requested-with"

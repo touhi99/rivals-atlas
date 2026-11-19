@@ -6,6 +6,7 @@ tracked player's other games using a two-proportion test. All p-values go throug
 adding more checks does not add more false alarms. Players who nearly always queue together are reported as
 one party, not as separate findings. Nothing here is a prediction.
 """
+
 from __future__ import annotations
 
 import math
@@ -48,9 +49,20 @@ def _cand(kind: str, title: str, w: int, n: int, w2: int, n2: int, **extra: Any)
     if n < MIN_N or n2 < MIN_N:
         return None
     lo, hi = wilson(w, n)
-    return {"kind": kind, "title": title, "n": n, "wins": w, "rate": w / n, "base": w2 / n2, "n2": n2,
-            "lo": lo, "hi": hi, "p": two_prop_p(w, n, w2, n2), "direction": "up" if w / n > w2 / n2 else "down",
-            **extra}
+    return {
+        "kind": kind,
+        "title": title,
+        "n": n,
+        "wins": w,
+        "rate": w / n,
+        "base": w2 / n2,
+        "n2": n2,
+        "lo": lo,
+        "hi": hi,
+        "p": two_prop_p(w, n, w2, n2),
+        "direction": "up" if w / n > w2 / n2 else "down",
+        **extra,
+    }
 
 
 def _rows(con: sqlite3.Connection, f: Filter) -> list[sqlite3.Row]:
@@ -72,14 +84,13 @@ def compute(con: sqlite3.Connection, f: Filter, limit: int = 12) -> dict[str, An
             g[0] += r["result"] == "win"
             g[1] += 1
         for k, (w, n) in groups.items():
-            if k is not None and not (key == "hero_id" and k == 0):      # hero 0 = a game left before any hero was played
+            if k is not None and not (key == "hero_id" and k == 0):
                 ex = {"hero_id": k} if kind in ("hero",) else {}
                 cands.append(_cand(kind, label(k), w, n, W - w, N - n, **ex, **extra))
 
     split("hero_id", lambda k: f"{names.hero_name(k)} (games played as it)", "hero")
     split("map_id", lambda k: f"On {names.map_name(k)}", "map")
 
-    # enemy heroes: games where this hero was on the other side, versus the rest
     enemy: dict[int, set[str]] = {}
     for r in queries.enemy_heroes(con, f):
         enemy.setdefault(r["hero_id"], set()).add(r["match_uid"])
@@ -87,10 +98,18 @@ def compute(con: sqlite3.Connection, f: Filter, limit: int = 12) -> dict[str, An
     for hid, uids in enemy.items():
         ids = [u for u in uids if u in res]
         w = sum(res[u] for u in ids)
-        cands.append(_cand("enemy", f"When the enemy has {names.hero_name(hid)}", w, len(ids), W - w, N - len(ids),
-                           hero_id=hid))
+        cands.append(
+            _cand(
+                "enemy",
+                f"When the enemy has {names.hero_name(hid)}",
+                w,
+                len(ids),
+                W - w,
+                N - len(ids),
+                hero_id=hid,
+            )
+        )
 
-    # teammates, grouped into parties when they nearly always play together
     mates: dict[str, set[str]] = {}
     for r in queries.teammate_matches(con, f):
         if r["match_uid"] in res:
@@ -100,15 +119,17 @@ def compute(con: sqlite3.Connection, f: Filter, limit: int = 12) -> dict[str, An
     for h in big:
         if h in used:
             continue
-        party = [h] + [o for o in big if o != h and o not in used and
-                       len(mates[h] & mates[o]) / len(mates[h] | mates[o]) > 0.8]
+        party = [h] + [
+            o
+            for o in big
+            if o != h and o not in used and len(mates[h] & mates[o]) / len(mates[h] | mates[o]) > 0.8
+        ]
         used.update(party)
         uids = set.intersection(*(mates[x] for x in party)) if len(party) > 1 else mates[h]
         w = sum(res[u] for u in uids)
         label = " & ".join(names.player_label(con, x) for x in party)
         cands.append(_cand("squad", f"With {label}", w, len(uids), W - w, N - len(uids), party=len(party)))
 
-    # tilt: the result right after a loss, versus right after a win
     after = {"win": [0, 0], "loss": [0, 0]}
     for prev, cur in pairwise(rows):
         g = after[prev["result"]]

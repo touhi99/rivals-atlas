@@ -1,5 +1,6 @@
 """The JSON the React app shows, one function per page. Plain functions over the analysis code that only reshape
 the result for the browser. The routes are in `api.py`."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -19,7 +20,12 @@ from rivals_atlas.ingest import meta
 
 
 def hero(hid: int) -> dict[str, Any]:
-    return {"id": hid, "name": names.hero_name(hid), "icon": names.hero_icon(hid), "role": names.role_name(hid)}
+    return {
+        "id": hid,
+        "name": names.hero_name(hid),
+        "icon": names.hero_icon(hid),
+        "role": names.role_name(hid),
+    }
 
 
 def map_(mid: int) -> dict[str, Any]:
@@ -35,8 +41,17 @@ def career(con: sqlite3.Connection) -> dict[int, int]:
 
 def stat(r: dict[str, Any]) -> dict[str, Any]:
     """The numbers every row carries. Rates and interval ends are fractions; kda is None without data."""
-    return {"games": r["games"], "draws": r.get("draws", 0), "n": r["n"], "wins": r["wins"], "rate": r["rate"],
-            "lo": r["lo"], "hi": r["hi"], "enough": r["enough"], "kda": r.get("kda")}
+    return {
+        "games": r["games"],
+        "draws": r.get("draws", 0),
+        "n": r["n"],
+        "wins": r["wins"],
+        "rate": r["rate"],
+        "lo": r["lo"],
+        "hi": r["hi"],
+        "enough": r["enough"],
+        "kda": r.get("kda"),
+    }
 
 
 def shell(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
@@ -48,12 +63,21 @@ def shell(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     counts = queries.matches_per_mode(con)
     return {
         "has_data": sum(counts.values()) > 0,
-        "modes": [{"id": 2, "label": "ranked", "matches": counts.get(2, 0)}, {"id": 1, "label": "quick play", "matches": counts.get(1, 0)},
-                  {"id": 0, "label": "all", "matches": sum(counts.values())}],
+        "modes": [
+            {"id": 2, "label": "ranked", "matches": counts.get(2, 0)},
+            {"id": 1, "label": "quick play", "matches": counts.get(1, 0)},
+            {"id": 0, "label": "all", "matches": sum(counts.values())},
+        ],
         "heroes": [hero(h) for h in known],
         "maps": [map_(m["map_id"]) for m in stats.maps(con, base)],
-        "seasons": [{"id": r["season"], "label": names.season_label(r["season"]),
-                     "when": datetime.fromtimestamp(r["t0"], UTC).strftime("%b %Y")} for r in seasons],
+        "seasons": [
+            {
+                "id": r["season"],
+                "label": names.season_label(r["season"]),
+                "when": datetime.fromtimestamp(r["t0"], UTC).strftime("%b %Y"),
+            }
+            for r in seasons
+        ],
         "players": [{"id": h, "name": names.player_label(con, h)} for h in f.with_players],
     }
 
@@ -65,19 +89,40 @@ def heroes(con: sqlite3.Connection, f: Filter, meta_ctx: dict[str, Any]) -> dict
     life = career(con)
     rows = []
     for hid in sorted({int(k) for k in names._heroes()} | set(played)):
-        if hid == 0:                       # a game left before any hero was played is not a hero
+        if hid == 0:
             continue
         p = played.get(hid)
         mm = meta.for_hero(m, hid, group) if m else None
-        rows.append({**hero(hid), "career": life.get(hid, 0), "mine": stat(p) if p else None,
-                     "meta": ({"win": mm.get("win"), "pick": mm.get("pick"), "ban": mm.get("ban")} if mm else None)})
+        rows.append(
+            {
+                **hero(hid),
+                "career": life.get(hid, 0),
+                "mine": stat(p) if p else None,
+                "meta": (
+                    {"win": mm.get("win"), "pick": mm.get("pick"), "ban": mm.get("ban")} if mm else None
+                ),
+            }
+        )
     rows.sort(key=lambda r: (-(r["mine"]["games"] if r["mine"] else 0), r["name"]))
     stand = insights.compute(con, f)
     return {
-        "heroes": rows, "meta_label": meta_ctx["meta_label"] if m else None,
-        "stands": {"checked": stand["checked"], "flagged": stand["flagged"], "findings": [
-            {"title": x["title"], "direction": x["direction"], "rate": x["rate"], "base": x["base"], "n": x["n"],
-             "hero": hero(x["hero_id"]) if x.get("hero_id") else None} for x in stand["findings"]]},
+        "heroes": rows,
+        "meta_label": meta_ctx["meta_label"] if m else None,
+        "stands": {
+            "checked": stand["checked"],
+            "flagged": stand["flagged"],
+            "findings": [
+                {
+                    "title": x["title"],
+                    "direction": x["direction"],
+                    "rate": x["rate"],
+                    "base": x["base"],
+                    "n": x["n"],
+                    "hero": hero(x["hero_id"]) if x.get("hero_id") else None,
+                }
+                for x in stand["findings"]
+            ],
+        },
     }
 
 
@@ -85,11 +130,21 @@ def maps(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     """Per-map results plus the hero x map grid (rows heroes, columns maps; cells keyed 'hero:map')."""
     grid = stats.hero_map_grid(con, f, heroes=14, maps=12)
     return {
-        "maps": [{**map_(x["map_id"]), **stat(x), "first_season": x["first_season"], "last_season": x["last_season"],
-                  "minutes": x["minutes"]} for x in stats.maps(con, f)],
-        "grid": {"heroes": [{**hero(h), "games": grid["hero_games"][h]} for h in grid["heroes"]],
-                 "maps": [map_(x) for x in grid["maps"]],
-                 "cells": {f"{h}:{x}": {**stat(c), "games": c["games"]} for (h, x), c in grid["cells"].items()}},
+        "maps": [
+            {
+                **map_(x["map_id"]),
+                **stat(x),
+                "first_season": x["first_season"],
+                "last_season": x["last_season"],
+                "minutes": x["minutes"],
+            }
+            for x in stats.maps(con, f)
+        ],
+        "grid": {
+            "heroes": [{**hero(h), "games": grid["hero_games"][h]} for h in grid["heroes"]],
+            "maps": [map_(x) for x in grid["maps"]],
+            "cells": {f"{h}:{x}": {**stat(c), "games": c["games"]} for (h, x), c in grid["cells"].items()},
+        },
         "min_games": stats.MIN_GAMES,
     }
 
@@ -99,56 +154,125 @@ def overview(con: sqlite3.Connection, f: Filter, d: dict[str, Any]) -> dict[str,
     ov = stats.overview(con)
     hs = d["heroes"]
     rm = d["rank_main"]
-    by_season = [{"season": r["season"], "label": names.season_label(r["season"]), "wins": r["wins"], "losses": r["losses"],
-                  **{k: v for k, v in stats.rate(r["wins"], r["losses"]).items() if k in ("rate", "lo", "hi", "enough")}}
-                 for r in queries.wins_losses_by_season(con, f.replace(season_from=None, season_to=None))]
+    by_season = [
+        {
+            "season": r["season"],
+            "label": names.season_label(r["season"]),
+            "wins": r["wins"],
+            "losses": r["losses"],
+            **{
+                k: v
+                for k, v in stats.rate(r["wins"], r["losses"]).items()
+                if k in ("rate", "lo", "hi", "enough")
+            },
+        }
+        for r in queries.wins_losses_by_season(con, f.replace(season_from=None, season_to=None))
+    ]
     form = queries.latest_results(con, f, 30)
     roles: dict[str, int] = {}
     for h in hs:
         if h["hero_id"] > 0:
             roles[names.role_name(h["hero_id"])] = roles.get(names.role_name(h["hero_id"]), 0) + h["games"]
     return {
-        "by_season": by_season, "form": form, "roles": [{"role": k, "games": v} for k, v in sorted(roles.items(), key=lambda x: -x[1])],
-        "has_data": ov["n"] > 0, "total": stat({**d["tot"], "games": d["tot"]["games"], "kda": None}),
-        "losses": d["tot"]["losses"], "top_heroes": [{**hero(h["hero_id"]), "career": career(con).get(h["hero_id"], 0), "mine": stat(h)} for h in hs if h["hero_id"] > 0][:5],
-        "rank": ({"tier": rm["tier"], "score": rm["new_score"], "peak": d["rank_peak"], "level": rm["new_level"]} if rm else None),
-        "journey": {"points": [{"t": p["t"], "score": p["score"], "delta": p["delta"], "level": p["level"], "tier": p["tier"],
-                                "season": p["season"], "ladder": p["ladder"], "result": p["result"]} for p in d["rank_pts"]],
-                    "tiers": d["rank_tiers"], "seasons": d["rank_seasons"]},
-        "facts": [{"kind": x.get("kind", ""), "label": x["label"], "value": x["value"], "sub": x["sub"], "data": x.get("data", {})}
-                  for x in d["pat"]["facts"]],
+        "by_season": by_season,
+        "form": form,
+        "roles": [{"role": k, "games": v} for k, v in sorted(roles.items(), key=lambda x: -x[1])],
+        "has_data": ov["n"] > 0,
+        "total": stat({**d["tot"], "games": d["tot"]["games"], "kda": None}),
+        "losses": d["tot"]["losses"],
+        "top_heroes": [
+            {**hero(h["hero_id"]), "career": career(con).get(h["hero_id"], 0), "mine": stat(h)}
+            for h in hs
+            if h["hero_id"] > 0
+        ][:5],
+        "rank": (
+            {"tier": rm["tier"], "score": rm["new_score"], "peak": d["rank_peak"], "level": rm["new_level"]}
+            if rm
+            else None
+        ),
+        "journey": {
+            "points": [
+                {
+                    "t": p["t"],
+                    "score": p["score"],
+                    "delta": p["delta"],
+                    "level": p["level"],
+                    "tier": p["tier"],
+                    "season": p["season"],
+                    "ladder": p["ladder"],
+                    "result": p["result"],
+                }
+                for p in d["rank_pts"]
+            ],
+            "tiers": d["rank_tiers"],
+            "seasons": d["rank_seasons"],
+        },
+        "facts": [
+            {
+                "kind": x.get("kind", ""),
+                "label": x["label"],
+                "value": x["value"],
+                "sub": x["sub"],
+                "data": x.get("data", {}),
+            }
+            for x in d["pat"]["facts"]
+        ],
     }
 
 
 def hero_detail(con: sqlite3.Connection, f: Filter, hero_id: int, meta_ctx: dict[str, Any]) -> dict[str, Any]:
     fh = f.replace(hero=hero_id)
     mine = next(iter(stats.heroes(con, fh)), None)
-    seasons = [{"label": names.season_label(r["season"]), **stats.rate(r["wins"], r["losses"])}
-               for r in queries.wins_losses_by_season(con, fh)]
-    recent = [{**dict(r), "add_score": r["add_score"] if r["mode_id"] == 2 else None} for r in queries.latest_matches(con, fh, 12)]
+    seasons = [
+        {"label": names.season_label(r["season"]), **stats.rate(r["wins"], r["losses"])}
+        for r in queries.wins_losses_by_season(con, fh)
+    ]
+    recent = [
+        {**dict(r), "add_score": r["add_score"] if r["mode_id"] == 2 else None}
+        for r in queries.latest_matches(con, fh, 12)
+    ]
 
     def split(edges: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         own = [e for e in edges if e["source"] == hero_id]
-        pick = lambda es: [{**hero(e["target"]), "n": e["n"], "rate": e["rate"], "lo": e["lo"], "hi": e["hi"]} for e in es]
-        return {"best": pick(sorted((e for e in own if e["rate"] > 0.5), key=lambda e: -e["lo"])[:5]),
-                "worst": pick(sorted((e for e in own if e["rate"] <= 0.5), key=lambda e: e["hi"])[:3])}
+        pick = lambda es: [
+            {**hero(e["target"]), "n": e["n"], "rate": e["rate"], "lo": e["lo"], "hi": e["hi"]} for e in es
+        ]
+        return {
+            "best": pick(sorted((e for e in own if e["rate"] > 0.5), key=lambda e: -e["lo"])[:5]),
+            "worst": pick(sorted((e for e in own if e["rate"] <= 0.5), key=lambda e: e["hi"])[:3]),
+        }
 
     try:
         bench = tools.hero_benchmark(con, hero_id, mode=f.mode, season=None)
         bench_out: dict[str, Any] | None = {
-            "items": bench.items, "tracked_matches": bench.value["tracked_matches"], "other_lines": bench.value["other_lines"],
-            "rate": bench.rate, "n": bench.n, "others_rate": bench.value["others_rate"], "enough": bench.enough}
-    except ValueError:                      # the graph file is not built yet
+            "items": bench.items,
+            "tracked_matches": bench.value["tracked_matches"],
+            "other_lines": bench.value["other_lines"],
+            "rate": bench.rate,
+            "n": bench.n,
+            "others_rate": bench.value["others_rate"],
+            "enough": bench.enough,
+        }
+    except ValueError:
         bench_out = None
     m, group = meta_ctx["meta"], meta_ctx["meta_group"]
     mg, ma = (meta.for_hero(m, hero_id, group), meta.for_hero(m, hero_id, "all")) if m else (None, None)
     return {
-        "hero": hero(hero_id), "career": career(con).get(hero_id, 0), "mine": stat(mine) if mine else None, "meta_label": meta_ctx["meta_label"] if m else None,
-        "meta": {"group": mg, "all": ma} if mg else None, "seasons": seasons, "bench": bench_out,
+        "hero": hero(hero_id),
+        "career": career(con).get(hero_id, 0),
+        "mine": stat(mine) if mine else None,
+        "meta_label": meta_ctx["meta_label"] if m else None,
+        "meta": {"group": mg, "all": ma} if mg else None,
+        "seasons": seasons,
+        "bench": bench_out,
         "maps": [{**map_(x["map_id"]), **stat(x)} for x in stats.maps(con, fh)],
-        "with": split(graph.lens(con, fh, "teammates", 5)["edges"]), "against": split(graph.lens(con, fh, "enemies", 5)["edges"]),
-        "teamups": [{"heroes": [hero(h) for h in t["heroes"]], "win": t["win"], "matches": t["matches"]}
-                    for t in (m or {}).get("teamups", []) if hero_id in t["heroes"]][:6],
+        "with": split(graph.lens(con, fh, "teammates", 5)["edges"]),
+        "against": split(graph.lens(con, fh, "enemies", 5)["edges"]),
+        "teamups": [
+            {"heroes": [hero(h) for h in t["heroes"]], "win": t["win"], "matches": t["matches"]}
+            for t in (m or {}).get("teamups", [])
+            if hero_id in t["heroes"]
+        ][:6],
         "recent": [{**r, "map": map_(r["map_id"]) if r["map_id"] else None} for r in recent],
     }
 
@@ -157,11 +281,14 @@ def patterns(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     d = pat.compute(con, f)
     mode_n = queries.match_count(con, f.mode)
     since = int(time.time()) - 182 * 86400
-    days = [{"day": r["day"], "games": r["games"], "wins": r["wins"], "losses": r["losses"]} for r in queries.daily_results(con, f, since)]
+    days = [
+        {"day": r["day"], "games": r["games"], "wins": r["wins"], "losses": r["losses"]}
+        for r in queries.daily_results(con, f, since)
+    ]
     return {**d, "days": days, "mode_n": mode_n, "mode_label": {**stats.MODES, 0: "all"}.get(f.mode, "")}
 
 
-MAX_PARTY = 5          # the table has 2^n rows, so more than this stops being readable
+MAX_PARTY = 5
 
 
 def squad(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
@@ -174,11 +301,27 @@ def squad(con: sqlite3.Connection, f: Filter) -> dict[str, Any]:
     label = {s["player_id"]: s["player"] for s in regulars}
     combos = stats.party_combos(con, nowith, cols) if cols else []
     return {
-        "ticked": ticked, "max_party": MAX_PARTY, "cols": [{"id": h, "name": label.get(h, h[:6])} for h in cols],
-        "regulars": [{"id": s["player_id"], "name": s["player"], "last_played": s["last_played"], **stat({**s, "games": s["games"]})}
-                     for s in regulars[:24]],
-        "combos": [{"members": c["members"], "kind": c["kind"], "names": [label.get(h, h[:6]) for h in c["members"]],
-                    **stat({**c, "games": c["n"]})} for c in combos],
+        "ticked": ticked,
+        "max_party": MAX_PARTY,
+        "cols": [{"id": h, "name": label.get(h, h[:6])} for h in cols],
+        "regulars": [
+            {
+                "id": s["player_id"],
+                "name": s["player"],
+                "last_played": s["last_played"],
+                **stat({**s, "games": s["games"]}),
+            }
+            for s in regulars[:24]
+        ],
+        "combos": [
+            {
+                "members": c["members"],
+                "kind": c["kind"],
+                "names": [label.get(h, h[:6]) for h in c["members"]],
+                **stat({**c, "games": c["n"]}),
+            }
+            for c in combos
+        ],
     }
 
 
@@ -193,26 +336,73 @@ def explore(con: sqlite3.Connection, query: Any, default_min: Any, stale: bool) 
         error = str(e)
     ch = ex.choices(con, spec["mode"])
     out: dict[str, Any] = {
-        "spec": spec, "group_by": group_by, "asked": asked, "error": error, "graph_stale": stale,
-        "chips": [{"label": c["label"], "drop": c["drop"]} for c in ex.chips(spec, group_by)] + [
-            {"label": f"with {names.player_label(con, i)}", "drop": urlencode({**{k: v for k, v in spec.items() if k != "with"},
-             **({"with": [x for x in spec["with"] if x != i]} if len(spec["with"]) > 1 else {}),
-             **({"group_by": group_by} if group_by else {}), "go": 1}, doseq=True)} for i in spec.get("with", [])],
-        "choices": {k: [{"value": v, "label": t} for v, t in ch[k]] for k in
-                    ("heroes", "maps", "seasons", "roles", "blocks", "weekdays", "positions", "regulars", "groups")},
+        "spec": spec,
+        "group_by": group_by,
+        "asked": asked,
+        "error": error,
+        "graph_stale": stale,
+        "chips": [{"label": c["label"], "drop": c["drop"]} for c in ex.chips(spec, group_by)]
+        + [
+            {
+                "label": f"with {names.player_label(con, i)}",
+                "drop": urlencode(
+                    {
+                        **{k: v for k, v in spec.items() if k != "with"},
+                        **({"with": [x for x in spec["with"] if x != i]} if len(spec["with"]) > 1 else {}),
+                        **({"group_by": group_by} if group_by else {}),
+                        "go": 1,
+                    },
+                    doseq=True,
+                ),
+            }
+            for i in spec.get("with", [])
+        ],
+        "choices": {
+            k: [{"value": v, "label": t} for v, t in ch[k]]
+            for k in (
+                "heroes",
+                "maps",
+                "seasons",
+                "roles",
+                "blocks",
+                "weekdays",
+                "positions",
+                "regulars",
+                "groups",
+            )
+        },
         "result": None,
         "teammates": [{"value": v, "label": t} for v, t in ex.regular_choices(con)],
     }
     if result:
         p = result["panels"]
         out["result"] = {
-            "total": result["total"], "games": result["games"], "draws": result["draws"], "group_title": result["group_title"],
+            "total": result["total"],
+            "games": result["games"],
+            "draws": result["draws"],
+            "group_title": result["group_title"],
             "groups": result["groups"],
-            "panels": {**p, "heroes": [{**h, "icon": names.hero_icon(h["id"]), "role": names.role_name(h["id"])} for h in p["heroes"]],
-                       "maps": [{**m, "icon": names.map_icon(m["id"])} for m in p["maps"]],
-                       "trend": ({"points": [{"week": q["week"], "rate": q["rate"], "n": q["n"]} for q in p["trend"]["points"]]}
-                                 if p["trend"] else None)},
+            "panels": {
+                **p,
+                "heroes": [
+                    {**h, "icon": names.hero_icon(h["id"]), "role": names.role_name(h["id"])}
+                    for h in p["heroes"]
+                ],
+                "maps": [{**m, "icon": names.map_icon(m["id"])} for m in p["maps"]],
+                "trend": (
+                    {
+                        "points": [
+                            {"week": q["week"], "rate": q["rate"], "n": q["n"]} for q in p["trend"]["points"]
+                        ]
+                    }
+                    if p["trend"]
+                    else None
+                ),
+            },
         }
-        out["result"]["combos"] = [{"ids": g["ids"], "name": g["name"], **stat({**g, "games": g["games"]})} for g in ex.combos(con, spec)[:15]]
+        out["result"]["combos"] = [
+            {"ids": g["ids"], "name": g["name"], **stat({**g, "games": g["games"]})}
+            for g in ex.combos(con, spec)[:15]
+        ]
         out["default_min"] = default_min(result["games"], "teammates")
     return out

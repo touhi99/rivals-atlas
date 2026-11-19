@@ -1,4 +1,5 @@
 """File-import adapter (tier A): reads raw history pages and match documents from a folder, no network."""
+
 from __future__ import annotations
 
 import bisect
@@ -22,9 +23,11 @@ class Report:
     self_uid_source: str = ""
 
     def lines(self) -> list[str]:
-        out = [f"imported {self.matches} matches",
-               f"  with history (map, season): {self.with_history} / {self.matches}",
-               f"  own line identified: {self.self_found} / {self.matches} ({self.self_uid_source})"]
+        out = [
+            f"imported {self.matches} matches",
+            f"  with history (map, season): {self.with_history} / {self.matches}",
+            f"  own line identified: {self.self_found} / {self.matches} ({self.self_uid_source})",
+        ]
         out += [f"  skipped: {s}" for s in self.skipped[:10]]
         return out
 
@@ -44,7 +47,6 @@ def read_history(folder: Path) -> dict[str, dict[str, Any]]:
 def infer_self(history: dict[str, dict[str, Any]]) -> Any:
     c = Counter(r["match_player"]["player_uid"] for r in history.values() if r.get("match_player"))
     return c.most_common(1)[0][0] if c else None
-
 
 
 def import_folder(con: sqlite3.Connection, raw: Path, self_uid: Any = None) -> Report:
@@ -101,9 +103,28 @@ def store_names(con: sqlite3.Connection, nicks: dict[str, tuple[int, str]]) -> N
 
 def store(con: sqlite3.Connection, m: Match, src: Path) -> None:
     queries.delete_match(con, m.match_uid)
-    queries.insert_match(con, {**{k: getattr(m, k) for k in ("match_uid", "played_at", "duration", "mode_id", "season", "map_id",
-                                                             "winner_side", "score_0", "score_1", "mvp_id", "svp_id")},
-                               "has_history": int(m.has_history)})
+    queries.insert_match(
+        con,
+        {
+            **{
+                k: getattr(m, k)
+                for k in (
+                    "match_uid",
+                    "played_at",
+                    "duration",
+                    "mode_id",
+                    "season",
+                    "map_id",
+                    "winner_side",
+                    "score_0",
+                    "score_1",
+                    "mvp_id",
+                    "svp_id",
+                )
+            },
+            "has_history": int(m.has_history),
+        },
+    )
     queries.insert_match_players(con, [{**p, "match_uid": m.match_uid} for p in m.players])
     queries.insert_hero_lines(con, [{**h, "match_uid": m.match_uid} for h in m.hero_lines])
     queries.insert_ban_picks(con, [{**b, "match_uid": m.match_uid} for b in m.bans])

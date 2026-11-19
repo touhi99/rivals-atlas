@@ -1,6 +1,6 @@
 import cytoscape from 'cytoscape'
 import { Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { HeroFace } from '@/components/bits'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,12 +53,13 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
   const [all, setAll] = useState(false)
   const [more, setMore] = useState(false)
   const [find, setFind] = useState('')
-  const [slider, setSlider] = useState(minN)
-  const [K, setK] = useState(16)   // weight: phantom 50% games added to every pair when ranking
+  const [drag, setDrag] = useState<number | null>(null)
+  const slider = drag ?? minN
+  const commitSlider = () => { setMinN(slider); setDrag(null) }
+  const [K, setK] = useState(16)
   const byId = useMemo(() => Object.fromEntries((data?.nodes ?? []).map((n) => [n.id, n])) as Record<number, GraphNode>, [data])
-  useEffect(() => setSlider(minN), [minN])
+  const pairLink = useEffectEvent(() => (rel === 'maps' ? 'on' : rel === 'enemies' ? 'vs' : '+'))
 
-  // (re)build the graph whenever the data changes
   useEffect(() => {
     if (!host.current || !data) return
     const pos = rings(data.nodes)
@@ -98,18 +99,18 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
       if (!cy.current?.$(':selected').length) e.target.connectedEdges().addClass('show')
     })
     c.on('mouseout', 'node', (e) => {
-      if (!c.$(':selected').length) e.target.connectedEdges().removeClass('show')      // a focused hero keeps its lines
+      if (!c.$(':selected').length) e.target.connectedEdges().removeClass('show')
       setTip(null)
     })
     c.on('mouseover', 'edge', (e) => {
       const d = e.target.data(), a = data.nodes.find((x) => x.id === Number(e.target.source().id())), b = data.nodes.find((x) => x.id === Number(e.target.target().id()))
       const p = e.renderedPosition
-      if (a && b) setTip({ x: p.x + 14, y: p.y + 14, html: `<b>${short(a.name)} ${rel === 'maps' ? 'on' : rel === 'enemies' ? 'vs' : '+'} ${short(b.name)}</b><br>${Math.round(d.rate * 100)}% in ${d.n} games (${Math.round(d.lo * 100)}–${Math.round(d.hi * 100)}%)` })
+      if (a && b) setTip({ x: p.x + 14, y: p.y + 14, html: `<b>${short(a.name)} ${pairLink()} ${short(b.name)}</b><br>${Math.round(d.rate * 100)}% in ${d.n} games (${Math.round(d.lo * 100)}–${Math.round(d.hi * 100)}%)` })
     })
     c.on('mouseout', 'edge', () => setTip(null))
     setSel((s) => (s != null && byId[s] ? s : null))
     return () => { c.destroy(); cy.current = null }
-  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, byId])
 
   useEffect(() => { if (all) cy.current?.edges().addClass('all'); else cy.current?.edges().removeClass('all') }, [all, data])
 
@@ -120,7 +121,6 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
     return r
   }, [sel, data, byId])
 
-  // focus layout: the chosen hero in the middle, partners around it from best to worst
   useEffect(() => {
     const c = cy.current
     if (!c || !data) return
@@ -148,11 +148,9 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
       node.connectedEdges().removeClass('gone').addClass('show')
     })
     c.$(':selected').unselect(); node.select(); c.resize(); c.fit(c.elements().not('.gone'), 60)
-  }, [sel, rows, data]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sel, rows, data, byId])
 
   const n = sel != null ? byId[sel] : null
-  // readable order: rank by a weighted win rate (pulled toward 50% by K phantom games), so 83% over 6 games
-  // doesn't outrank 62% over 45. The list still shows the raw rate and game count.
   const score = (x: Row) => (x.e.rate * x.e.n + K * 0.5) / (x.e.n + K)
   const bestAll = rows.filter((x) => score(x) > 0.5).sort((a, b) => score(b) - score(a) || b.e.n - a.e.n)
   const worstAll = rows.filter((x) => score(x) <= 0.5).sort((a, b) => score(a) - score(b) || b.e.n - a.e.n)
@@ -189,7 +187,7 @@ export default function ExploreGraph({ rel, setRel, minN, setMinN, data, games, 
           <datalist id="gheroes">{(data?.nodes ?? []).map((x) => <option key={x.id} value={x.name} />)}</datalist>
         </div>
         <label className="flex items-center justify-between text-xs text-muted-foreground" title="A pair needs at least this many decided games"><span>Min games</span><b className="text-foreground">{slider}</b></label>
-        <input type="range" min={1} max={80} value={slider} className="accent-[var(--primary)]" onChange={(e) => setSlider(Number(e.target.value))} onPointerUp={() => setMinN(slider)} onKeyUp={() => setMinN(slider)} />
+        <input type="range" min={1} max={80} value={slider} className="accent-[var(--primary)]" onChange={(e) => setDrag(Number(e.target.value))} onPointerUp={commitSlider} onKeyUp={commitSlider} />
         <label className="flex items-center justify-between text-xs text-muted-foreground" title="Ranking weight: pulls every win rate toward 50% as if it had this many extra games. 0 = raw win rate; higher = small samples count for less. Only changes the order, not the numbers shown."><span>Sample weight</span><b className="text-foreground">{K}</b></label>
         <input type="range" min={0} max={40} value={K} className="accent-[var(--primary)]" onChange={(e) => setK(Number(e.target.value))} />
         <div className="flex gap-3 text-[11px] text-muted-foreground"><span><i className="mr-1 inline-block h-[3px] w-3.5 bg-emerald-500 align-middle" />wins more</span><span><i className="mr-1 inline-block h-[3px] w-3.5 bg-orange-500 align-middle" />loses more</span></div>

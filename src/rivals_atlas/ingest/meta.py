@@ -2,6 +2,7 @@
 team-up win rates. Read at most once a day when the user fetches (two requests: the page for its build id, then the
 payload). The payload is in Nuxt's 'devalue' format and is decoded here, then summarised and stored as
 raw/meta.json."""
+
 from __future__ import annotations
 
 import json
@@ -10,11 +11,21 @@ import time
 from pathlib import Path
 from typing import Any
 
-MIN_TEAMUP = 200          # matches across all ranks before a team-up's win rate is shown
+MIN_TEAMUP = 200
 DAY = 86400
 _WRAPPERS = {"Reactive", "ShallowReactive", "Ref", "ShallowRef", "EmptyRef", "EmptyShallowRef", "NuxtError"}
 BUILD = re.compile(r'buildId:"([^"]+)"')
-RANK_GROUPS = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Grandmaster", "Celestial", "Eternity", "One Above All"]
+RANK_GROUPS = [
+    "Bronze",
+    "Silver",
+    "Gold",
+    "Platinum",
+    "Diamond",
+    "Grandmaster",
+    "Celestial",
+    "Eternity",
+    "One Above All",
+]
 
 
 def devalue(flat: list[Any]) -> Any:
@@ -33,9 +44,17 @@ def devalue(flat: list[Any]) -> Any:
         if isinstance(v, list):
             if v and isinstance(v[0], str) and (v[0] in _WRAPPERS or v[0] in ("Set", "Date", "Map")):
                 kind = v[0]
-                out = (v[1] if kind == "Date" else [at(x) for x in v[1:]] if kind == "Set"
-                       else {str(at(v[k])): at(v[k + 1]) for k in range(1, len(v) - 1, 2)} if kind == "Map"
-                       else at(v[1]) if len(v) > 1 else None)
+                out = (
+                    v[1]
+                    if kind == "Date"
+                    else [at(x) for x in v[1:]]
+                    if kind == "Set"
+                    else {str(at(v[k])): at(v[k + 1]) for k in range(1, len(v) - 1, 2)}
+                    if kind == "Map"
+                    else at(v[1])
+                    if len(v) > 1
+                    else None
+                )
                 done[i] = out
                 return out
             items: list[Any] = []
@@ -80,10 +99,12 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         for g, t in row.items():
             if not t["matches"] or not games.get(g):
                 continue
-            by[g] = {"pick": round(100 * t["matches"] / games[g], 1),
-                     "win": round(100 * t["wr_wins"] / t["wr_matches"], 1) if t["wr_matches"] else None,
-                     "ban": round(100 * bans.get((g, hid), 0) / ban_games[g], 1) if ban_games.get(g) else None,
-                     "matches": t["matches"]}
+            by[g] = {
+                "pick": round(100 * t["matches"] / games[g], 1),
+                "win": round(100 * t["wr_wins"] / t["wr_matches"], 1) if t["wr_matches"] else None,
+                "ban": round(100 * bans.get((g, hid), 0) / ban_games[g], 1) if ban_games.get(g) else None,
+                "matches": t["matches"],
+            }
         heroes.append({"id": hid, "by_rank": by})
     heroes.sort(key=lambda h: -h["by_rank"].get("all", {}).get("pick", 0))
     pairs: dict[str, list[int]] = {}
@@ -96,10 +117,20 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
                 p = pairs.setdefault(combo, [0, 0])
                 p[0] += v.get("matches") or 0
                 p[1] += v.get("wins") or 0
-    teamups: list[dict[str, Any]] = sorted(({"heroes": [int(x) for x in combo.split(",")], "matches": m, "win": round(100 * w / m, 1)}
-                      for combo, (m, w) in pairs.items() if m >= MIN_TEAMUP), key=lambda t: -t["win"])
-    return {"season": int(doc.get("season") or 0) or None,
-            "ranks": {str(i + 1): name for i, name in enumerate(RANK_GROUPS)}, "heroes": heroes, "teamups": teamups}
+    teamups: list[dict[str, Any]] = sorted(
+        (
+            {"heroes": [int(x) for x in combo.split(",")], "matches": m, "win": round(100 * w / m, 1)}
+            for combo, (m, w) in pairs.items()
+            if m >= MIN_TEAMUP
+        ),
+        key=lambda t: -t["win"],
+    )
+    return {
+        "season": int(doc.get("season") or 0) or None,
+        "ranks": {str(i + 1): name for i, name in enumerate(RANK_GROUPS)},
+        "heroes": heroes,
+        "teamups": teamups,
+    }
 
 
 def path(base: Path) -> Path:

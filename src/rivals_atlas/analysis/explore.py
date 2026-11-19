@@ -3,6 +3,7 @@
 One query returns the matching matches; the breakdown groups those rows in Python, so every group carries the same
 numbers as everywhere else (decided games, wins, Wilson interval, minimum sample).
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -17,12 +18,11 @@ from rivals_atlas.graph import store as lbug_store
 
 BLOCKS = ["Night 0–6", "Morning 6–12", "Afternoon 12–18", "Evening 18–24"]
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-MATCH_LIMIT = 200      # rows shown in the match table
-TIMELINE_LIMIT = 400   # most recent matches drawn as dots
-RELATION_EDGES = 36    # strongest hero-map links drawn in the relations view
-NO_MAP = "No map data"   # the site's history list does not cover the newest matches yet
+MATCH_LIMIT = 200
+TIMELINE_LIMIT = 400
+RELATION_EDGES = 36
+NO_MAP = "No map data"
 
-# group name -> (title, label of one row)
 GROUPS: dict[str, tuple[str, Callable[[dict[str, Any]], str]]] = {
     "hero": ("Hero", lambda r: names.hero_name(r["hero"])),
     "role": ("Role", lambda r: names.ROLES.get(r["role"], "Unknown role")),
@@ -36,19 +36,19 @@ GROUPS: dict[str, tuple[str, Callable[[dict[str, Any]], str]]] = {
 
 
 def _tally(rows: list[dict[str, Any]], label: Callable[[dict[str, Any]], str]) -> list[dict[str, Any]]:
-    wl: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])      # wins, losses, all games
+    wl: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     for r in rows:
         x = wl[label(r)]
         x[0] += r["result"] == "win"
         x[1] += r["result"] == "loss"
         x[2] += 1
     out = [{"label": k, "games": g, **stats.rate(w, lo)} for k, (w, lo, g) in wl.items()]
-    return sorted(out, key=lambda x: (x["label"] == NO_MAP, -x["games"], x["label"]))      # unknown last
+    return sorted(out, key=lambda x: (x["label"] == NO_MAP, -x["games"], x["label"]))
 
 
 def relations(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Hero-to-map links among the matched matches: who played where, with games and wins. A small graph for the page."""
-    heroes: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0])      # games, wins, losses
+    heroes: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0])
     maps: dict[int, int] = defaultdict(int)
     links: dict[tuple[int, int], list[int]] = defaultdict(lambda: [0, 0, 0])
     for r in rows:
@@ -66,22 +66,28 @@ def relations(rows: list[dict[str, Any]]) -> dict[str, Any]:
     used_h = {h for (h, _), _ in top}
     used_m = {m for (_, m), _ in top}
     return {
-        "heroes": [{"id": h, "name": names.hero_name(h), "games": g, **stats.rate(w, lo)} for h, (g, w, lo) in heroes.items() if h in used_h],
+        "heroes": [
+            {"id": h, "name": names.hero_name(h), "games": g, **stats.rate(w, lo)}
+            for h, (g, w, lo) in heroes.items()
+            if h in used_h
+        ],
         "maps": [{"id": m, "name": names.map_name(m), "games": g} for m, g in maps.items() if m in used_m],
         "links": [{"hero": h, "map": m, "games": g, **stats.rate(w, lo)} for (h, m), (g, w, lo) in top],
     }
 
 
-TREND_MIN = 8      # decided games a week needs before it gets a point on the trend line
+TREND_MIN = 8
 
 
 def panels(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Everything the visual Breakdown shows, from the matched rows: hero tiles, maps, roles, seasons, a weekday by
     time-of-day grid and a weekly win-rate trend. Every rate carries the same interval and minimum as elsewhere."""
+
     def with_id(key: str, label: Callable[[Any], str]) -> list[dict[str, Any]]:
         t = _tally([{**r, "_k": r[key]} for r in rows], lambda r: str(r["_k"]))
         ids = {str(r[key]): r[key] for r in rows}
         return [{**x, "id": ids[x["label"]], "label": label(ids[x["label"]])} for x in t]
+
     grid = [[[0, 0] for _ in BLOCKS] for _ in WEEKDAYS]
     weeks: dict[int, list[int]] = defaultdict(lambda: [0, 0])
     for r in rows:
@@ -94,10 +100,20 @@ def panels(rows: list[dict[str, Any]]) -> dict[str, Any]:
             w[1] += 1
     heat = [[{**stats.rate(w, n - w), "games": n} for w, n in row] for row in grid]
     pts = [{"week": k, "rate": w / n, "n": n} for k, (w, n) in sorted(weeks.items()) if n >= TREND_MIN]
-    return {"heroes": [h for h in with_id("hero", names.hero_name) if h["id"] > 0], "maps": [m for m in with_id("map", lambda m: names.map_name(m) if m >= 0 else NO_MAP) if m["id"] >= 0],
-            "roles": [x for x in with_id("role", lambda r: names.ROLES.get(r, "Unknown role")) if x["id"] in names.ROLES],
-            "seasons": [s for s in with_id("season", lambda s: names.season_label(s)) if s["id"] >= 0],
-            "heat": heat, "weekdays": WEEKDAYS, "blocks": BLOCKS, "trend": _trend(pts)}
+    return {
+        "heroes": [h for h in with_id("hero", names.hero_name) if h["id"] > 0],
+        "maps": [
+            m for m in with_id("map", lambda m: names.map_name(m) if m >= 0 else NO_MAP) if m["id"] >= 0
+        ],
+        "roles": [
+            x for x in with_id("role", lambda r: names.ROLES.get(r, "Unknown role")) if x["id"] in names.ROLES
+        ],
+        "seasons": [s for s in with_id("season", lambda s: names.season_label(s)) if s["id"] >= 0],
+        "heat": heat,
+        "weekdays": WEEKDAYS,
+        "blocks": BLOCKS,
+        "trend": _trend(pts),
+    }
 
 
 def _trend(pts: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -109,8 +125,19 @@ def _trend(pts: list[dict[str, Any]]) -> dict[str, Any] | None:
     for p in pts:
         x = 8 + (584 * (p["week"] - lo_w) / max(hi_w - lo_w, 1))
         y = 112 - 104 * p["rate"]
-        out.append({"x": round(x, 1), "y": round(y, 1), "rate": round(p["rate"] * 100), "n": p["n"], "week": p["week"] * 604800})
-    return {"points": out, "path": " ".join(("M" if i == 0 else "L") + f"{q['x']},{q['y']}" for i, q in enumerate(out))}
+        out.append(
+            {
+                "x": round(x, 1),
+                "y": round(y, 1),
+                "rate": round(p["rate"] * 100),
+                "n": p["n"],
+                "week": p["week"] * 604800,
+            }
+        )
+    return {
+        "points": out,
+        "path": " ".join(("M" if i == 0 else "L") + f"{q['x']},{q['y']}" for i, q in enumerate(out)),
+    }
 
 
 def run(con: sqlite3.Connection, spec: dict[str, Any], group_by: str | None = None) -> dict[str, Any]:
@@ -125,17 +152,39 @@ def run(con: sqlite3.Connection, spec: dict[str, Any], group_by: str | None = No
     elif group_by:
         groups = _tally(rows, GROUPS[group_by][1])
     shown = list(reversed(rows))[:MATCH_LIMIT]
-    timeline = [{"ts": r["ts"], "result": r["result"], "hero": names.hero_name(r["hero"])} for r in rows[-TIMELINE_LIMIT:]]
-    return {"spec": spec, "group_by": group_by, "total": stats.rate(wins, losses), "games": len(rows), "draws": len(rows) - wins - losses,
-            "groups": groups, "panels": panels(rows), "timeline": timeline, "relations": relations(rows), "group_title": GROUPS[group_by][0] if group_by else "",
-            "matches": [{**r, "hero_name": names.hero_name(r["hero"]), "map_name": names.map_name(r["map"]) if r["map"] >= 0 else NO_MAP}
-                        for r in shown], "truncated": len(rows) > MATCH_LIMIT}
+    timeline = [
+        {"ts": r["ts"], "result": r["result"], "hero": names.hero_name(r["hero"])}
+        for r in rows[-TIMELINE_LIMIT:]
+    ]
+    return {
+        "spec": spec,
+        "group_by": group_by,
+        "total": stats.rate(wins, losses),
+        "games": len(rows),
+        "draws": len(rows) - wins - losses,
+        "groups": groups,
+        "panels": panels(rows),
+        "timeline": timeline,
+        "relations": relations(rows),
+        "group_title": GROUPS[group_by][0] if group_by else "",
+        "matches": [
+            {
+                **r,
+                "hero_name": names.hero_name(r["hero"]),
+                "map_name": names.map_name(r["map"]) if r["map"] >= 0 else NO_MAP,
+            }
+            for r in shown
+        ],
+        "truncated": len(rows) > MATCH_LIMIT,
+    }
 
 
 _CACHE: dict[tuple[Any, ...], tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]] = {}
 
 
-def _cached_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]:
+def _cached_rows(
+    con: sqlite3.Connection, spec: dict[str, Any]
+) -> tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]:
     """Matches of a spec. `with` (player ids) keeps only matches where all of those teammates were on the tracked player's side."""
     base = {k: v for k, v in spec.items() if k != "with"}
     want = spec.get("with")
@@ -148,16 +197,23 @@ def _cached_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[di
 
 def _matches_with(con: sqlite3.Connection, ids: list[str]) -> set[str]:
     marks = ",".join("?" * len(ids))
-    return {r[0] for r in con.execute(
-        "SELECT p.match_uid FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
-        f"WHERE p.is_self=1 AND t.player_id IN ({marks}) GROUP BY p.match_uid HAVING COUNT(DISTINCT t.player_id)=?", [*ids, len(ids)])}
+    return {
+        r[0]
+        for r in con.execute(
+            "SELECT p.match_uid FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
+            f"WHERE p.is_self=1 AND t.player_id IN ({marks}) GROUP BY p.match_uid HAVING COUNT(DISTINCT t.player_id)=?",
+            [*ids, len(ids)],
+        )
+    }
 
 
 def regular_choices(con: sqlite3.Connection) -> list[tuple[str, str]]:
     """Every regular teammate (id, label), most games together first: the options of the teammate picker."""
     rows = con.execute(
         "SELECT t.player_id, COUNT(*) c FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
-        "WHERE p.is_self=1 GROUP BY t.player_id HAVING c >= ? ORDER BY c DESC", (queries.REGULAR_GAMES,)).fetchall()
+        "WHERE p.is_self=1 GROUP BY t.player_id HAVING c >= ? ORDER BY c DESC",
+        (queries.REGULAR_GAMES,),
+    ).fetchall()
     return [(r[0], f"{names.player_label(con, r[0])} ({r[1]})") for r in rows]
 
 
@@ -166,8 +222,10 @@ def combos(con: sqlite3.Connection, spec: dict[str, Any]) -> list[dict[str, Any]
     res = {r["uid"]: r["result"] for r in _cached_rows(con, spec)[0]}
     regular = {r[0] for r in regular_choices_ids(con)}
     present: dict[str, set[str]] = {}
-    for r in con.execute("SELECT p.match_uid, t.player_id FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid "
-                         "AND t.camp=p.camp AND t.is_self=0 WHERE p.is_self=1"):
+    for r in con.execute(
+        "SELECT p.match_uid, t.player_id FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid "
+        "AND t.camp=p.camp AND t.is_self=0 WHERE p.is_self=1"
+    ):
         if r[0] in res and r[1] in regular:
             present.setdefault(r[0], set()).add(r[1])
     groups: dict[frozenset[str], list[int]] = {}
@@ -176,18 +234,29 @@ def combos(con: sqlite3.Connection, spec: dict[str, Any]) -> list[dict[str, Any]
         g[0] += 1
         g[1] += result == "win"
         g[2] += result == "loss"
-    out = [{"ids": sorted(k), "name": " + ".join(sorted(names.player_label(con, i) for i in k)) or "None of the regulars",
-            "games": g[0], **stats.rate(g[1], g[2])} for k, g in groups.items()]
+    out = [
+        {
+            "ids": sorted(k),
+            "name": " + ".join(sorted(names.player_label(con, i) for i in k)) or "None of the regulars",
+            "games": g[0],
+            **stats.rate(g[1], g[2]),
+        }
+        for k, g in groups.items()
+    ]
     return sorted(out, key=lambda x: -x["games"])
 
 
 def regular_choices_ids(con: sqlite3.Connection) -> list[tuple[str]]:
     return con.execute(
         "SELECT t.player_id FROM match_players p JOIN match_players t ON t.match_uid=p.match_uid AND t.camp=p.camp AND t.is_self=0 "
-        "WHERE p.is_self=1 GROUP BY t.player_id HAVING COUNT(*) >= ?", (queries.REGULAR_GAMES,)).fetchall()
+        "WHERE p.is_self=1 GROUP BY t.player_id HAVING COUNT(*) >= ?",
+        (queries.REGULAR_GAMES,),
+    ).fetchall()
 
 
-def _graph_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]:
+def _graph_rows(
+    con: sqlite3.Connection, spec: dict[str, Any]
+) -> tuple[list[dict[str, Any]], Callable[[], list[dict[str, Any]]]]:
     """Graph query results for a spec, kept in memory until the graph file changes (matches never change once played)."""
     path = lbug_store.graph_path(con)
     if not path.exists():
@@ -196,11 +265,14 @@ def _graph_rows(con: sqlite3.Connection, spec: dict[str, Any]) -> tuple[list[dic
     key = (*stamp, tuple(sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in spec.items())))
     if key not in _CACHE:
         for k in [k for k in _CACHE if k[:2] != stamp]:
-            del _CACHE[k]                                  # a rebuilt graph file drops every old entry
+            del _CACHE[k]
         if len(_CACHE) >= 64:
             _CACHE.pop(next(iter(_CACHE)))
         conn = lbug_store.open_readonly(path)
-        _CACHE[key] = (lbug_store.pattern_rows(conn, **spec), lambda: lbug_store.pattern_bans(lbug_store.open_readonly(path), **spec))
+        _CACHE[key] = (
+            lbug_store.pattern_rows(conn, **spec),
+            lambda: lbug_store.pattern_bans(lbug_store.open_readonly(path), **spec),
+        )
     return _CACHE[key]
 
 
@@ -210,8 +282,19 @@ def graph(con: sqlite3.Connection, spec: dict[str, Any], rel: str, min_n: int) -
     return hero_graph.lens_for_matches(con, rows, rel, min_n)
 
 
-SPEC_INTS = ("mode", "season_from", "season_to", "map_id", "hero", "role", "block", "weekday", "session_pos", "regulars")
-SPEC_LISTS = ("banned", "not_banned")          # up to MAX_BANS heroes each: all banned / none banned
+SPEC_INTS = (
+    "mode",
+    "season_from",
+    "season_to",
+    "map_id",
+    "hero",
+    "role",
+    "block",
+    "weekday",
+    "session_pos",
+    "regulars",
+)
+SPEC_LISTS = ("banned", "not_banned")
 MAX_BANS = 3
 MAX_WITH = 3
 
@@ -237,19 +320,31 @@ def parse_spec(query: Any) -> tuple[dict[str, Any], str | None]:
 def choices(con: sqlite3.Connection, mode: int) -> dict[str, Any]:
     """Option lists for the form: every known hero, the maps and seasons present in this mode."""
     heroes = sorted(((int(k), v) for k, v in names._heroes().items()), key=lambda x: x[1])
-    maps = list(dict.fromkeys(names.canonical_map_id(m) for m in queries.map_ids_by_games(con, mode)))   # one entry per map name
+    maps = list(dict.fromkeys(names.canonical_map_id(m) for m in queries.map_ids_by_games(con, mode)))
     seasons = queries.seasons_in_mode(con, mode)
-    return {"heroes": heroes, "maps": [(m, names.map_name(m)) for m in maps], "seasons": [(s, names.season_label(s)) for s in seasons],
-            "roles": sorted(names.ROLES.items()), "blocks": list(enumerate(BLOCKS)), "weekdays": list(enumerate(WEEKDAYS)),
-            "positions": [(i, str(i) if i < 5 else "5+") for i in range(1, 6)], "regulars": [(0, "None known"), (1, "One (duo)"), (2, "Two (trio)"), (3, "Three or more")],
-            "groups": [(k, v[0]) for k, v in GROUPS.items()]}
+    return {
+        "heroes": heroes,
+        "maps": [(m, names.map_name(m)) for m in maps],
+        "seasons": [(s, names.season_label(s)) for s in seasons],
+        "roles": sorted(names.ROLES.items()),
+        "blocks": list(enumerate(BLOCKS)),
+        "weekdays": list(enumerate(WEEKDAYS)),
+        "positions": [(i, str(i) if i < 5 else "5+") for i in range(1, 6)],
+        "regulars": [(0, "None known"), (1, "One (duo)"), (2, "Two (trio)"), (3, "Three or more")],
+        "groups": [(k, v[0]) for k, v in GROUPS.items()],
+    }
 
 
 _CHIP_LABELS: dict[str, Callable[[int], str]] = {
-    "mode": lambda v: stats.MODES.get(v, f"mode {v}").capitalize(), "map_id": names.map_name,
-    "season_from": lambda v: f"from {names.season_label(v)}", "season_to": lambda v: f"to {names.season_label(v)}",
-    "hero": lambda v: f"plays {names.hero_name(v)}", "role": lambda v: f"role {names.ROLES.get(v, '?').lower()}",
-    "block": lambda v: BLOCKS[v], "weekday": lambda v: WEEKDAYS[v], "session_pos": lambda v: f"game {v if v < 5 else '5+'} in session",
+    "mode": lambda v: stats.MODES.get(v, f"mode {v}").capitalize(),
+    "map_id": names.map_name,
+    "season_from": lambda v: f"from {names.season_label(v)}",
+    "season_to": lambda v: f"to {names.season_label(v)}",
+    "hero": lambda v: f"plays {names.hero_name(v)}",
+    "role": lambda v: f"role {names.ROLES.get(v, '?').lower()}",
+    "block": lambda v: BLOCKS[v],
+    "weekday": lambda v: WEEKDAYS[v],
+    "session_pos": lambda v: f"game {v if v < 5 else '5+'} in session",
     "regulars": lambda v: f"{v} regular teammate{'s' if v != 1 else ''}",
 }
 
@@ -269,12 +364,19 @@ def chips(spec: dict[str, Any], group_by: str | None) -> list[dict[str, str]]:
         if k == "mode" or v is None:
             continue
         if k == "with":
-            continue                                     # chips for teammates are built by the caller, which knows their names
+            continue
         if k in SPEC_LISTS:
             for hero_id in v:
                 rest = [h for h in v if h != hero_id]
                 keep = {**{a: b for a, b in spec.items() if a != k}, **({k: rest} if rest else {})}
-                out.append({"label": f"{names.hero_name(hero_id)} {'banned' if k == 'banned' else 'not banned'}", "drop": query(keep)})
+                out.append(
+                    {
+                        "label": f"{names.hero_name(hero_id)} {'banned' if k == 'banned' else 'not banned'}",
+                        "drop": query(keep),
+                    }
+                )
         else:
-            out.append({"label": _CHIP_LABELS[k](v), "drop": query({a: b for a, b in spec.items() if a != k})})
+            out.append(
+                {"label": _CHIP_LABELS[k](v), "drop": query({a: b for a, b in spec.items() if a != k})}
+            )
     return out

@@ -5,6 +5,7 @@ tool again and compares. Same numbers and enough games: shown with its sample si
 Same numbers but too few games: rewritten as 'not enough games'. Different numbers, a failed query or matches
 the query does not return: dropped. No model is involved, so it holds whatever wrote the claim.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,7 @@ from typing import Any
 from rivals_atlas.agents import tools
 from rivals_atlas.analysis import stats
 
-RATE_TOLERANCE = 0.005   # a claim rounded to a whole percent still matches
+RATE_TOLERANCE = 0.005
 
 
 @dataclass
@@ -32,8 +33,8 @@ class Claim:
 
 @dataclass
 class Verdict:
-    status: str                        # "ok" | "insufficient" | "dropped"
-    text: str                          # what may be shown ("" when dropped)
+    status: str
+    text: str
     reason: str
     claim: Claim
     finding: tools.Finding | None = None
@@ -67,13 +68,22 @@ def check(con: sqlite3.Connection, claim: Claim, meta: dict[str, Any] | None = N
         if stray_numbers:
             return _drop(claim, f"number(s) {', '.join(stray_numbers)} are not in the query's rows", fresh)
     if not fresh.enough:
-        return Verdict("insufficient", f"Not enough games to say (n={fresh.n}, at least {stats.MIN_GAMES} needed).",
-                       "sample below the minimum", claim, fresh)
+        return Verdict(
+            "insufficient",
+            f"Not enough games to say (n={fresh.n}, at least {stats.MIN_GAMES} needed).",
+            "sample below the minimum",
+            claim,
+            fresh,
+        )
     text = claim.text.rstrip(". ")
-    if fresh.tool == "cypher_query":                       # n is a row count there, not a sample size
+    if fresh.tool == "cypher_query":
         return Verdict("ok", text + ".", "", claim, fresh)
-    if f"n={fresh.n}" not in text:                         # the model often writes it itself: do not repeat
-        text += f" (n={fresh.n}" + (f", 95% interval {fresh.lo:.0%} to {fresh.hi:.0%}" if fresh.lo is not None else "") + ")"
+    if f"n={fresh.n}" not in text:
+        text += (
+            f" (n={fresh.n}"
+            + (f", 95% interval {fresh.lo:.0%} to {fresh.hi:.0%}" if fresh.lo is not None else "")
+            + ")"
+        )
     return Verdict("ok", text + ".", "", claim, fresh)
 
 
@@ -91,8 +101,11 @@ def _numbers_not_in_rows(claim: Claim, fresh: tools.Finding) -> list[str]:
                 allowed.add(str(int(v)) if float(v).is_integer() else str(v))
     allowed |= set(_NUMBER.findall(str(claim.args.get("cypher", ""))))
     text = re.sub(r"n\s*=\s*\d+", "", claim.text)
-    return [x for x in dict.fromkeys(_NUMBER.findall(text)) if x not in allowed
-            and not (x.endswith("0") and "." in x and x.rstrip("0").rstrip(".") in allowed)]
+    return [
+        x
+        for x in dict.fromkeys(_NUMBER.findall(text))
+        if x not in allowed and not (x.endswith("0") and "." in x and x.rstrip("0").rstrip(".") in allowed)
+    ]
 
 
 _TEXT_NUMBER = re.compile(r"\d+(?:\.\d+)?%?")

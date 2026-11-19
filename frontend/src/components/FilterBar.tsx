@@ -25,7 +25,6 @@ function Pick({ value, onChange, placeholder, items }: {
 
 export default function FilterBar() {
   const { filters, query, set } = useFilters()
-  // The choices depend only on the mode, so they are fetched with the mode alone.
   const { data: shell } = useApi<Shell>('shell', `mode=${filters.mode}`)
   const active = filters.season_from || filters.season_to || filters.hero || filters.map_id || filters.with.length
   const seasons = (shell?.seasons ?? []).map((s) => ({ id: s.id, label: s.label }))

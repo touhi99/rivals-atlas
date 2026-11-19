@@ -4,7 +4,6 @@ import Layout from '@/components/Layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AskChat } from '@/pages/AskPage'
 
-/** Everything that needs a model, apart from the dashboard: the chat and the agents' analysis. */
 export default function AgentsPage() {
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') === 'insights' ? 'insights' : 'ask'

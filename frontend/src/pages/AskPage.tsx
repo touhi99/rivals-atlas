@@ -2,13 +2,14 @@ import { ArrowUp, Check, ChevronRight, Database, Loader2, Plus, Sparkles, Trash2
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MapBanner } from '@/components/bits'
-import { Chip, Rich, useEntities } from '@/components/Entities'
+import { Chip, Rich } from '@/components/Entities'
+import { useEntities, type Entities } from '@/lib/entities'
 import { getJson, postJson, useApi, type AskCall, type AskInfo, type AskJob, type Shell } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 type Turn = { id: string; question: string; job: AskJob | null; error?: string }
 
-function Cell({ v, ent }: { v: string | number | null; ent: ReturnType<typeof useEntities> }) {
+function Cell({ v, ent }: { v: string | number | null; ent: Entities }) {
   if (v === null || v === undefined) return <span className="text-muted-foreground">–</span>
   if (typeof v === 'string') {
     const h = ent.map.get(v.toLowerCase().replace(/ \(.*\)/, '')) ?? ent.map.get(v.toLowerCase())
@@ -19,7 +20,7 @@ function Cell({ v, ent }: { v: string | number | null; ent: ReturnType<typeof us
   return <span className="tabular-nums">{Number.isInteger(v) ? v : v.toFixed(1)}</span>
 }
 
-function ToolCall({ call, running, ent }: { call: AskCall; running?: boolean; ent: ReturnType<typeof useEntities> }) {
+function ToolCall({ call, running, ent }: { call: AskCall; running?: boolean; ent: Entities }) {
   const [open, setOpen] = useState(false)
   const cols = call.rows[0] ? Object.keys(call.rows[0]) : []
   const isQuery = call.tool === 'cypher_query'
@@ -52,15 +53,14 @@ function ToolCall({ call, running, ent }: { call: AskCall; running?: boolean; en
 
 const isRate = (k: string) => /(pct|percent|rate)$/i.test(k)
 
-/** The rows a query returned, as a table: hero and map names get their pictures, win rates get a bar around 50%. */
-function ResultCard({ call, ent }: { call: AskCall; ent: ReturnType<typeof useEntities> }) {
+function ResultCard({ call, ent }: { call: AskCall; ent: Entities }) {
   const [all, setAll] = useState(false)
   const [sql, setSql] = useState(false)
   const cols = call.rows[0] ? Object.keys(call.rows[0]) : []
   const rows = all ? call.rows : call.rows.slice(0, 8)
   const rate = (key: string, v: string | number | null) => {
     const raw = typeof v === 'number' ? v : NaN
-    const n = /rate$/i.test(key) && raw <= 1 ? raw * 100 : raw        // a column named ...rate holds a fraction; ...pct holds a percentage
+    const n = /rate$/i.test(key) && raw <= 1 ? raw * 100 : raw
     if (Number.isNaN(n)) return <Cell v={v} ent={ent} />
     return (
       <span className="inline-flex items-center gap-2">
@@ -97,7 +97,7 @@ function ResultCard({ call, ent }: { call: AskCall; ent: ReturnType<typeof useEn
   )
 }
 
-function Answer({ turn, ent }: { turn: Turn; ent: ReturnType<typeof useEntities> }) {
+function Answer({ turn, ent }: { turn: Turn; ent: Entities }) {
   const j = turn.job
   const running = !j || j.state === 'running'
   return (
@@ -139,6 +139,7 @@ function Answer({ turn, ent }: { turn: Turn; ent: ReturnType<typeof useEntities>
 
 type Chat = { id: string; title: string; updated: number; turns: Turn[] }
 const STORE = 'ask-chats'
+const NO_TURNS: Turn[] = []
 
 function loadChats(): Chat[] {
   try { return JSON.parse(localStorage.getItem(STORE) ?? '[]') as Chat[] } catch { return [] }
@@ -150,24 +151,25 @@ export function AskChat() {
   const ent = useEntities(shell)
   const [params, setParams] = useSearchParams()
   const [chats, setChats] = useState<Chat[]>(loadChats)
-  const [draft, setDraft] = useState(() => crypto.randomUUID())        // the id a new chat gets when its first question is sent
+  const [draft, setDraft] = useState(() => crypto.randomUUID())
   const active = params.get('c') ?? draft
   const chat = chats.find((c) => c.id === active)
-  const turns = chat?.turns ?? []
+  const turns = chat?.turns ?? NO_TURNS
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const end = useRef<HTMLDivElement>(null)
   const timer = useRef<number | undefined>(undefined)
 
-  // a question that was still running when the page went away has no answer to come back to
   useEffect(() => {
     localStorage.setItem(STORE, JSON.stringify(chats.map((c) => ({ ...c, turns: c.turns.map((t) => (t.job?.state === 'running' || (!t.job && !t.error) ? { ...t, job: null, error: t.error ?? 'Interrupted: the page was closed before the answer arrived.' } : t)) }))))
   }, [chats])
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [turns, active])
   useEffect(() => () => window.clearTimeout(timer.current), [])
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(t) }, [])
 
-  const edit = (chatId: string, fn: (c: Chat) => Chat, fallback?: Chat) =>
-    setChats((cs) => (cs.some((c) => c.id === chatId) ? cs.map((c) => (c.id === chatId ? fn(c) : c)) : fallback ? [fallback, ...cs] : cs))
+  const edit = (chatId: string, fn: (c: Chat) => Chat, fallback?: () => Chat) =>
+    setChats((cs) => (cs.some((c) => c.id === chatId) ? cs.map((c) => (c.id === chatId ? fn(c) : c)) : fallback ? [fallback(), ...cs] : cs))
   const patch = (chatId: string, id: string, p: Partial<Turn>) =>
     edit(chatId, (c) => ({ ...c, updated: Date.now(), turns: c.turns.map((t) => (t.id === id ? { ...t, ...p } : t)) }))
   const poll = async (chatId: string, id: string, jobId: string) => {
@@ -182,7 +184,7 @@ export function AskChat() {
     setQ(''); setBusy(true)
     const chatId = active, id = crypto.randomUUID()
     const turn: Turn = { id, question, job: null }
-    edit(chatId, (c) => ({ ...c, updated: Date.now(), turns: [...c.turns, turn] }), { id: chatId, title: question.slice(0, 60), updated: Date.now(), turns: [turn] })
+    edit(chatId, (c) => ({ ...c, updated: Date.now(), turns: [...c.turns, turn] }), () => ({ id: chatId, title: question.slice(0, 60), updated: Date.now(), turns: [turn] }))
     if (!params.get('c')) setParams({ c: chatId }, { replace: true })
     const r = await postJson('/api/ask/start', { question })
     const j = (await r.json()) as { id?: string; detail?: string }
@@ -195,7 +197,7 @@ export function AskChat() {
     if (id === active) newChat()
   }
   const sorted = [...chats].sort((a, b) => b.updated - a.updated)
-  const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) }
+  const ago = (t: number) => { const m = Math.round((now - t) / 60000); return m < 1 ? 'now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) }
 
   return (
     <>

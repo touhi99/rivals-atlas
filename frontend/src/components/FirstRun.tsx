@@ -8,7 +8,6 @@ const STEPS = [
   { icon: Sparkles, title: 'Explore', text: 'When the first fetch ends, every page fills in: rank journey, heroes, maps, patterns, squad, and the Agents page.' },
 ]
 
-/** Shown instead of a page while nothing is stored yet. */
 export default function FirstRun() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-8">

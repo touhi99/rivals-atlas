@@ -1,9 +1,10 @@
 import { Trophy } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Highlights from '@/components/Highlights'
-import { AXIS, FormStrip, Gauge, LOSS, RoleDonut, TIP, WIN, timeAxis } from '@/components/charts'
+import { FormStrip, Gauge, RoleDonut } from '@/components/charts'
+import { AXIS, LOSS, TIP, WIN, timeAxis } from '@/lib/chart-style'
 import { HeroFace, Mastery, Panel, Spinner, StatTile, WinBar } from '@/components/bits'
 import Layout from '@/components/Layout'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -16,7 +17,8 @@ const date = (t: number) => new Date(t * 1000).toLocaleDateString(undefined, { d
 export default function OverviewPage() {
   const { query, filters } = useFilters()
   const { data: d, error } = useApi<OverviewData>('overview', query)
-  const [season, setSeason] = useState<number | 'all' | null>(null)   // null = the latest season until chosen
+  const [choice, setChoice] = useState<{ query: string; season: number | 'all' }>()
+  const season = choice?.query === query ? choice.season : null
 
   const all = useMemo(() => {
     if (!d) return []
@@ -27,7 +29,6 @@ export default function OverviewPage() {
   const latest = seasons.length ? seasons[seasons.length - 1].season : null
   const prev = seasons.length > 1 ? seasons[seasons.length - 2].season : null
   const pick = season ?? (latest ?? 'all')
-  useEffect(() => setSeason(null), [query])
   const points = pick === 'all' ? all : all.filter((p) => p.season === pick)
   const ys = points.map((p) => p.score)
   const lo = Math.min(...ys), hi = Math.max(...ys)
@@ -77,12 +78,12 @@ export default function OverviewPage() {
               action={
                 <div className="flex items-center gap-2">
                   <ToggleGroup variant="outline" size="sm" className="hidden @3xl/main:flex" value={[String(pick === 'all' ? 'all' : pick === latest ? 'latest' : pick === prev ? 'prev' : '')]}
-                    onValueChange={(v) => { const x = v[0]; if (x) setSeason(x === 'all' ? 'all' : x === 'latest' ? (latest ?? 'all') : (prev ?? 'all')) }}>
+                    onValueChange={(v) => { const x = v[0]; if (x) setChoice({ query, season: x === 'all' ? 'all' : x === 'latest' ? (latest ?? 'all') : (prev ?? 'all') }) }}>
                     <ToggleGroupItem value="all">All seasons</ToggleGroupItem>
                     <ToggleGroupItem value="latest">Latest</ToggleGroupItem>
                     <ToggleGroupItem value="prev">Previous</ToggleGroupItem>
                   </ToggleGroup>
-                  <Select value={String(pick)} onValueChange={(v) => setSeason(v === 'all' ? 'all' : Number(v))}>
+                  <Select value={String(pick)} onValueChange={(v) => setChoice({ query, season: v === 'all' ? 'all' : Number(v) })}>
                     <SelectTrigger size="sm" className="w-36"><SelectValue>{(v: string) => (v === 'all' ? 'All seasons' : (seasons.find((x) => String(x.season) === v)?.label ?? 'Season'))}</SelectValue></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All seasons</SelectItem>
