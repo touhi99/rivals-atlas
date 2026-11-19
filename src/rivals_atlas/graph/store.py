@@ -7,6 +7,7 @@ Shape: (Match)-[:HAS_LINE]->(Line)-[:USED]->(Hero); Match -ON_MAP-> Map, -IN-> S
 Hero -MEMBER_OF-> TeamUp. A Line is one of the 12 players of a match with that player's numbers. Match properties carry the
 derived attributes (time block, weekday, session position, the tracked player's result and rank change).
 """
+
 from __future__ import annotations
 
 import csv
@@ -30,10 +31,14 @@ SCHEMA = [
     "CREATE NODE TABLE Season(n INT64 PRIMARY KEY, label STRING)",
     "CREATE NODE TABLE Mode(id INT64 PRIMARY KEY, name STRING)",
     "CREATE NODE TABLE TeamUp(id STRING PRIMARY KEY, matches INT64, win DOUBLE)",
-    ("CREATE NODE TABLE Match(uid STRING PRIMARY KEY, ts INT64, mode INT64, season INT64, map INT64, duration DOUBLE, "
-     "block INT64, weekday INT64, session_pos INT64, regulars INT64, winner_side INT64, self_result STRING, rank_delta DOUBLE, comp STRING, enemy_comp STRING)"),
-    ("CREATE NODE TABLE Line(id STRING PRIMARY KEY, player STRING, camp INT64, result STRING, k INT64, d INT64, a INT64, "
-     "damage DOUBLE, heal DOUBLE, taken DOUBLE, is_self BOOLEAN)"),
+    (
+        "CREATE NODE TABLE Match(uid STRING PRIMARY KEY, ts INT64, mode INT64, season INT64, map INT64, duration DOUBLE, "
+        "block INT64, weekday INT64, session_pos INT64, regulars INT64, winner_side INT64, self_result STRING, rank_delta DOUBLE, comp STRING, enemy_comp STRING)"
+    ),
+    (
+        "CREATE NODE TABLE Line(id STRING PRIMARY KEY, player STRING, camp INT64, result STRING, k INT64, d INT64, a INT64, "
+        "damage DOUBLE, heal DOUBLE, taken DOUBLE, is_self BOOLEAN)"
+    ),
     "CREATE REL TABLE ON_MAP(FROM Match TO Map)",
     "CREATE REL TABLE IN_SEASON(FROM Match TO Season)",
     "CREATE REL TABLE IN_MODE(FROM Match TO Mode)",
@@ -94,7 +99,10 @@ def build(con: sqlite3.Connection, path: Path | str, meta: dict[str, Any] | None
         seasons = queries.distinct_seasons(con)
         modes = queries.distinct_modes(con)
         load: dict[str, tuple[list[str], list[tuple[Any, ...]]]] = {
-            "Hero": (["id", "name", "role", "role_name"], [(h, names.hero_name(h), names.role_id(h) or 0, names.role_name(h)) for h in heroes]),
+            "Hero": (
+                ["id", "name", "role", "role_name"],
+                [(h, names.hero_name(h), names.role_id(h) or 0, names.role_name(h)) for h in heroes],
+            ),
             "Map": (["id", "name"], [(m, names.map_name(m)) for m in maps]),
             "Season": (["n", "label"], [(s, names.season_label(s)) for s in seasons]),
             "Mode": (["id", "name"], [(m, stats.MODES.get(m, f"mode {m}")) for m in modes]),
@@ -112,16 +120,64 @@ def build(con: sqlite3.Connection, path: Path | str, meta: dict[str, Any] | None
         for m in queries.all_matches(con):
             t = datetime.fromtimestamp(m["played_at"])
             res, add = self_info.get(m["match_uid"], ("", None))
-            match_rows.append((m["match_uid"], m["played_at"], m["mode_id"], m["season"] if m["season"] is not None else -1,
-                               m["map_id"] if m["map_id"] is not None else -1, m["duration"] or 0, t.hour // 6, t.weekday(),
-                               pos.get(m["match_uid"], 0), regulars.get(m["match_uid"], 0), m["winner_side"] if m["winner_side"] is not None else -1, res,
-                               add if add is not None else 0, *comps.get(m["match_uid"], ("", ""))))
-        load["Match"] = (["uid", "ts", "mode", "season", "map", "duration", "block", "weekday", "session_pos", "regulars", "winner_side",
-                          "self_result", "rank_delta", "comp", "enemy_comp"], match_rows)
+            match_rows.append(
+                (
+                    m["match_uid"],
+                    m["played_at"],
+                    m["mode_id"],
+                    m["season"] if m["season"] is not None else -1,
+                    m["map_id"] if m["map_id"] is not None else -1,
+                    m["duration"] or 0,
+                    t.hour // 6,
+                    t.weekday(),
+                    pos.get(m["match_uid"], 0),
+                    regulars.get(m["match_uid"], 0),
+                    m["winner_side"] if m["winner_side"] is not None else -1,
+                    res,
+                    add if add is not None else 0,
+                    *comps.get(m["match_uid"], ("", "")),
+                )
+            )
+        load["Match"] = (
+            [
+                "uid",
+                "ts",
+                "mode",
+                "season",
+                "map",
+                "duration",
+                "block",
+                "weekday",
+                "session_pos",
+                "regulars",
+                "winner_side",
+                "self_result",
+                "rank_delta",
+                "comp",
+                "enemy_comp",
+            ],
+            match_rows,
+        )
         lines = list(queries.player_lines(con))
-        load["Line"] = (["id", "player", "camp", "result", "k", "d", "a", "damage", "heal", "taken", "is_self"],
-                        [(f"{r['match_uid']}|{r['player_id']}", r["player_id"], r["camp"], r["result"], r["k"] or 0, r["d"] or 0,
-                          r["a"] or 0, r["damage"] or 0, r["heal"] or 0, r["taken"] or 0, bool(r["is_self"])) for r in lines])
+        load["Line"] = (
+            ["id", "player", "camp", "result", "k", "d", "a", "damage", "heal", "taken", "is_self"],
+            [
+                (
+                    f"{r['match_uid']}|{r['player_id']}",
+                    r["player_id"],
+                    r["camp"],
+                    r["result"],
+                    r["k"] or 0,
+                    r["d"] or 0,
+                    r["a"] or 0,
+                    r["damage"] or 0,
+                    r["heal"] or 0,
+                    r["taken"] or 0,
+                    bool(r["is_self"]),
+                )
+                for r in lines
+            ],
+        )
         teamups = (meta or {}).get("teamups") or []
         tu_ids = {"-".join(map(str, sorted(t["heroes"]))): t for t in teamups}
         load["TeamUp"] = (["id", "matches", "win"], [(i, t["matches"], t["win"]) for i, t in tu_ids.items()])
@@ -131,12 +187,22 @@ def build(con: sqlite3.Connection, path: Path | str, meta: dict[str, Any] | None
             "ON_MAP": (["from", "to"], queries.match_map_pairs(con)),
             "IN_SEASON": (["from", "to"], queries.match_season_pairs(con)),
             "IN_MODE": (["from", "to"], queries.match_mode_pairs(con)),
-            "HAS_LINE": (["from", "to"], [(r["match_uid"], f"{r['match_uid']}|{r['player_id']}") for r in lines]),
+            "HAS_LINE": (
+                ["from", "to"],
+                [(r["match_uid"], f"{r['match_uid']}|{r['player_id']}") for r in lines],
+            ),
             "USED": (["from", "to"], [(f"{r['match_uid']}|{r['player_id']}", r["hero_id"]) for r in lines]),
-            "BANNED": (["from", "to", "side", "round"],
-                       [(r[0], r[1], r[2] if r[2] is not None else -1, r[3] if r[3] is not None else -1)
-                        for r in queries.ban_rows(con)]),
-            "MEMBER_OF": (["from", "to"], [(h, i) for i in tu_ids for h in map(int, i.split("-")) if h in set(heroes)]),
+            "BANNED": (
+                ["from", "to", "side", "round"],
+                [
+                    (r[0], r[1], r[2] if r[2] is not None else -1, r[3] if r[3] is not None else -1)
+                    for r in queries.ban_rows(con)
+                ],
+            ),
+            "MEMBER_OF": (
+                ["from", "to"],
+                [(h, i) for i in tu_ids for h in map(int, i.split("-")) if h in set(heroes)],
+            ),
         }
         for name, (hdr, data) in rel.items():
             c.execute(f"COPY {name} FROM '{_csv(d, name, hdr, data)}' (HEADER=true)")
@@ -174,8 +240,12 @@ def is_current(con: sqlite3.Connection) -> bool:
         return False
     sql = queries.mode_signature(con)
     try:
-        res = _rows(open_readonly(path), "MATCH (m:Match) RETURN m.mode, count(m), sum(CASE WHEN m.season >= 0 THEN 1 ELSE 0 END), "
-                    "sum(CASE WHEN m.map >= 0 THEN 1 ELSE 0 END), sum(CASE WHEN m.comp <> '' THEN 1 ELSE 0 END)", {})
+        res = _rows(
+            open_readonly(path),
+            "MATCH (m:Match) RETURN m.mode, count(m), sum(CASE WHEN m.season >= 0 THEN 1 ELSE 0 END), "
+            "sum(CASE WHEN m.map >= 0 THEN 1 ELSE 0 END), sum(CASE WHEN m.comp <> '' THEN 1 ELSE 0 END)",
+            {},
+        )
     except RuntimeError:
         return False
     return sql == {(r[0], r[1], r[2], r[3]) for r in res}
@@ -208,18 +278,42 @@ def graph_path(sqlite_con: sqlite3.Connection) -> Path:
     return Path(queries.database_file(sqlite_con)).with_name(GRAPH_FILE)
 
 
-SPEC_KEYS = ("mode", "season", "map_id", "hero", "role", "banned", "ban_state", "block", "weekday", "session_pos", "regulars",
-             "comp", "enemy_comp")
+SPEC_KEYS = (
+    "mode",
+    "season",
+    "map_id",
+    "hero",
+    "role",
+    "banned",
+    "ban_state",
+    "block",
+    "weekday",
+    "session_pos",
+    "regulars",
+    "comp",
+    "enemy_comp",
+)
 _BAN_EXISTS = "EXISTS { MATCH (m)-[:BANNED]->(:Hero {id: $ban}) }"
 
 
-def _where(mode: int = 2, season: int | None = None, season_from: int | None = None, season_to: int | None = None,
-           map_id: int | None = None, hero: int | None = None,
-           role: int | None = None, banned: int | list[int] | None = None, ban_state: str = "present",
-           not_banned: list[int] | None = None, block: int | None = None,
-           weekday: int | None = None, session_pos: int | None = None,
-           regulars: int | None = None, comp: str | None = None,
-           enemy_comp: str | None = None) -> tuple[str, dict[str, Any]]:
+def _where(
+    mode: int = 2,
+    season: int | None = None,
+    season_from: int | None = None,
+    season_to: int | None = None,
+    map_id: int | None = None,
+    hero: int | None = None,
+    role: int | None = None,
+    banned: int | list[int] | None = None,
+    ban_state: str = "present",
+    not_banned: list[int] | None = None,
+    block: int | None = None,
+    weekday: int | None = None,
+    session_pos: int | None = None,
+    regulars: int | None = None,
+    comp: str | None = None,
+    enemy_comp: str | None = None,
+) -> tuple[str, dict[str, Any]]:
     """WHERE clause and parameters for a pattern. Fixed clauses only, every value is a bound parameter.
     `session_pos` 5 means the fifth game or later; `ban_state` is 'present' or 'absent' for hero `banned`."""
     if ban_state not in ("present", "absent"):
@@ -229,15 +323,23 @@ def _where(mode: int = 2, season: int | None = None, season_from: int | None = N
     if map_id is not None:
         where.append("m.map IN $maps")
         params["maps"] = list(names.same_map_ids(map_id))
-    for clause, key, value in (("m.season = $season", "season", season), ("m.season >= $season_from", "season_from", season_from),
-                               ("m.season <= $season_to", "season_to", season_to),
-                               ("h.id = $hero", "hero", hero), ("h.role = $role", "role", role),
-                               ("m.block = $block", "block", block), ("m.weekday = $weekday", "weekday", weekday),
-                               ("m.regulars = $regulars", "regulars", regulars)):
+    for clause, key, value in (
+        ("m.season = $season", "season", season),
+        ("m.season >= $season_from", "season_from", season_from),
+        ("m.season <= $season_to", "season_to", season_to),
+        ("h.id = $hero", "hero", hero),
+        ("h.role = $role", "role", role),
+        ("m.block = $block", "block", block),
+        ("m.weekday = $weekday", "weekday", weekday),
+        ("m.regulars = $regulars", "regulars", regulars),
+    ):
         if value is not None:
             where.append(clause)
             params[key] = value
-    for clause, key, text in (("m.comp = $comp", "comp", comp), ("m.enemy_comp = $enemy_comp", "enemy_comp", enemy_comp)):
+    for clause, key, text in (
+        ("m.comp = $comp", "comp", comp),
+        ("m.enemy_comp = $enemy_comp", "enemy_comp", enemy_comp),
+    ):
         if text is not None:
             if not re.fullmatch(r"[0-6]-[0-6]-[0-6]", text):
                 raise ValueError("a composition looks like 2-2-2 (vanguards-duelists-strategists)")
@@ -263,14 +365,30 @@ def _rows(conn: Any, query: str, params: dict[str, Any]) -> list[list[Any]]:
 
 
 _HEAD = "MATCH (m:Match)-[:HAS_LINE]->(me:Line {is_self: true})-[:USED]->(h:Hero) WHERE "
-_FIELDS = ["uid", "result", "ts", "hero", "role", "map", "season", "block", "weekday", "session_pos", "rank_delta"]
+_FIELDS = [
+    "uid",
+    "result",
+    "ts",
+    "hero",
+    "role",
+    "map",
+    "season",
+    "block",
+    "weekday",
+    "session_pos",
+    "rank_delta",
+]
 
 
 def pattern_rows(conn: Any, **spec: Any) -> list[dict[str, Any]]:
     """The tracked player's matches that satisfy every given condition, oldest first, one dict per match (see _FIELDS)."""
     where, params = _where(**spec)
-    q = (_HEAD + where + " RETURN m.uid, me.result, m.ts, h.id, h.role, m.map, m.season, m.block, m.weekday, m.session_pos, "
-         "m.rank_delta ORDER BY m.ts")
+    q = (
+        _HEAD
+        + where
+        + " RETURN m.uid, me.result, m.ts, h.id, h.role, m.map, m.season, m.block, m.weekday, m.session_pos, "
+        "m.rank_delta ORDER BY m.ts"
+    )
     return [dict(zip(_FIELDS, r, strict=True)) for r in _rows(conn, q, params)]
 
 
@@ -281,9 +399,11 @@ def comp_rows(conn: Any, side: str = "own", **spec: Any) -> list[dict[str, Any]]
         raise ValueError("side must be 'own' or 'enemy'")
     prop = "m.comp" if side == "own" else "m.enemy_comp"
     where, params = _where(**spec)
-    q = (_HEAD + where + f" AND {prop} <> '' AND me.result IN ['win', 'loss'] RETURN {prop} AS comp, "
-         "count(DISTINCT m) AS n, sum(CASE WHEN me.result = 'win' THEN 1 ELSE 0 END) AS wins, collect(DISTINCT m.uid) AS uids "
-         "ORDER BY n DESC, comp")
+    q = (
+        _HEAD + where + f" AND {prop} <> '' AND me.result IN ['win', 'loss'] RETURN {prop} AS comp, "
+        "count(DISTINCT m) AS n, sum(CASE WHEN me.result = 'win' THEN 1 ELSE 0 END) AS wins, collect(DISTINCT m.uid) AS uids "
+        "ORDER BY n DESC, comp"
+    )
     return [{"comp": r[0], "n": int(r[1]), "wins": int(r[2]), "uids": r[3]} for r in _rows(conn, q, params)]
 
 
@@ -297,8 +417,11 @@ def hero_lines(conn: Any, hero: int, mode: int = 2, season: int | None = None) -
     if season is not None:
         where += " AND m.season = $season"
         params["season"] = season
-    q = ("MATCH (m:Match)-[:HAS_LINE]->(l:Line)-[:USED]->(h:Hero) WHERE " + where +
-         " RETURN m.uid, l.is_self, l.result, l.k, l.d, l.a, l.damage, l.heal, l.taken, m.duration")
+    q = (
+        "MATCH (m:Match)-[:HAS_LINE]->(l:Line)-[:USED]->(h:Hero) WHERE "
+        + where
+        + " RETURN m.uid, l.is_self, l.result, l.k, l.d, l.a, l.damage, l.heal, l.taken, m.duration"
+    )
     keys = ["uid", "is_self", "result", "k", "d", "a", "damage", "heal", "taken", "duration"]
     return [dict(zip(keys, r, strict=True)) for r in _rows(conn, q, params)]
 
@@ -307,9 +430,12 @@ def pattern_bans(conn: Any, **spec: Any) -> list[dict[str, Any]]:
     """Same matches, one row per hero banned in the match: lets a caller ask which bans go with wins. A match with
     three bans appears three times. Any `banned` condition in the spec still applies to the match."""
     where, params = _where(**spec)
-    q = (_HEAD + where + " WITH m, me, h MATCH (m)-[:BANNED]->(b:Hero) RETURN m.uid, me.result, b.id ORDER BY m.ts")
+    q = (
+        _HEAD
+        + where
+        + " WITH m, me, h MATCH (m)-[:BANNED]->(b:Hero) RETURN m.uid, me.result, b.id ORDER BY m.ts"
+    )
     return [{"uid": r[0], "result": r[1], "banned_hero": r[2]} for r in _rows(conn, q, params)]
-
 
 
 GLOSSARY = """Meaning of the data:
@@ -344,12 +470,22 @@ def schema_prompt() -> str:
     """Everything a model needs to write a query: the real table definitions (taken from SCHEMA, so they cannot drift), the
     meaning of the fields, two worked examples, and the hero and map names."""
     heroes = ", ".join(sorted(h for h in names.hero_names() if h))
-    return "\n\n".join(["Graph schema (Cypher, LadybugDB):\n" + "\n".join(SCHEMA), GLOSSARY, EXAMPLES,
-                         "Hero names: " + heroes, "Map names: " + ", ".join(sorted(names.map_names()))])
+    return "\n\n".join(
+        [
+            "Graph schema (Cypher, LadybugDB):\n" + "\n".join(SCHEMA),
+            GLOSSARY,
+            EXAMPLES,
+            "Hero names: " + heroes,
+            "Map names: " + ", ".join(sorted(names.map_names())),
+        ]
+    )
 
 
-_WRITE = re.compile(r"\b(create|set|delete|detach|merge|remove|drop|alter|copy|load|install|attach|detach|call|export|import|"
-                    r"begin|commit|rollback|checkpoint|use)\b", re.IGNORECASE)
+_WRITE = re.compile(
+    r"\b(create|set|delete|detach|merge|remove|drop|alter|copy|load|install|attach|detach|call|export|import|"
+    r"begin|commit|rollback|checkpoint|use)\b",
+    re.IGNORECASE,
+)
 ROW_CAP = 200
 TIMEOUT_MS = 5000
 
@@ -375,8 +511,13 @@ def check_read_only(cypher: str) -> str:
     return q
 
 
-def run_read(conn: Any, cypher: str, params: dict[str, Any] | None = None, row_cap: int = ROW_CAP,
-             timeout_ms: int = TIMEOUT_MS) -> tuple[list[str], list[list[Any]], bool]:
+def run_read(
+    conn: Any,
+    cypher: str,
+    params: dict[str, Any] | None = None,
+    row_cap: int = ROW_CAP,
+    timeout_ms: int = TIMEOUT_MS,
+) -> tuple[list[str], list[list[Any]], bool]:
     """Run one guarded read query on a read-only connection. Returns column names, at most `row_cap` rows, and whether more
     rows existed. A query that runs longer than `timeout_ms` fails."""
     q = check_read_only(cypher)

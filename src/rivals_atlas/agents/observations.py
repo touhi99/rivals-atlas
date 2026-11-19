@@ -5,6 +5,7 @@ decides whether the stated relation holds; an observation that fails is thrown a
 difference is only claimed when the 95% ranges really are apart. What code cannot check is the wording: a sentence can still say
 "worse" about a pair the bars show the other way. The card puts the bars next to the sentence for that reason.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -33,11 +34,11 @@ def _ranged(*fs: tools.Finding) -> str | None:
 
 
 def _higher(a: tools.Finding, b: tools.Finding) -> str | None:
-    return _ranged(a, b) or (None if a.lo > b.hi else "the 95% ranges overlap")      # type: ignore[operator]
+    return _ranged(a, b) or (None if a.lo > b.hi else "the 95% ranges overlap")  # type: ignore[operator]
 
 
 def _lower(a: tools.Finding, b: tools.Finding) -> str | None:
-    return _ranged(a, b) or (None if a.hi < b.lo else "the 95% ranges overlap")      # type: ignore[operator]
+    return _ranged(a, b) or (None if a.hi < b.lo else "the 95% ranges overlap")  # type: ignore[operator]
 
 
 def _similar(a: tools.Finding, b: tools.Finding) -> str | None:
@@ -45,17 +46,17 @@ def _similar(a: tools.Finding, b: tools.Finding) -> str | None:
     bad = _ranged(a, b)
     if bad:
         return bad
-    if any(f.hi - f.lo > MAX_SIMILAR_WIDTH for f in (a, b)):    # type: ignore[operator]
+    if any(f.hi - f.lo > MAX_SIMILAR_WIDTH for f in (a, b)):  # type: ignore[operator]
         return "the samples are too small to call them similar"
-    return None if a.lo <= b.hi and b.lo <= a.hi else "the 95% ranges are apart"    # type: ignore[operator]
+    return None if a.lo <= b.hi and b.lo <= a.hi else "the 95% ranges are apart"  # type: ignore[operator]
 
 
 def _above_even(f: tools.Finding) -> str | None:
-    return _ranged(f) or (None if f.lo > 0.5 else "the range reaches 50%")            # type: ignore[operator]
+    return _ranged(f) or (None if f.lo > 0.5 else "the range reaches 50%")  # type: ignore[operator]
 
 
 def _below_even(f: tools.Finding) -> str | None:
-    return _ranged(f) or (None if f.hi < 0.5 else "the range reaches 50%")            # type: ignore[operator]
+    return _ranged(f) or (None if f.hi < 0.5 else "the range reaches 50%")  # type: ignore[operator]
 
 
 def _meta(sign: int) -> Callable[[tools.Finding], str | None]:
@@ -63,7 +64,12 @@ def _meta(sign: int) -> Callable[[tools.Finding], str | None]:
         if f.tool != "compare_to_meta" or "outside_interval" not in f.value:
             return "needs compare_to_meta with a site figure"
         d = f.value.get("difference")
-        return None if f.value["outside_interval"] and d is not None and d * sign > 0 else "the site figure is inside the player's range"
+        return (
+            None
+            if f.value["outside_interval"] and d is not None and d * sign > 0
+            else "the site figure is inside the player's range"
+        )
+
     return test
 
 
@@ -78,7 +84,9 @@ RELATIONS: dict[str, tuple[int, Callable[..., str | None], str]] = {
 }
 
 
-def check(con: sqlite3.Connection, text: str, relation: str, evidence_items: Any, meta: dict[str, Any] | None = None) -> Observation | str:
+def check(
+    con: sqlite3.Connection, text: str, relation: str, evidence_items: Any, meta: dict[str, Any] | None = None
+) -> Observation | str:
     """The observation if it holds, otherwise the reason it was dropped."""
     if relation not in RELATIONS:
         return f"unknown relation {relation!r}"

@@ -1,4 +1,5 @@
 """Where data lives. One folder holds the raw files and the database."""
+
 from __future__ import annotations
 
 import json

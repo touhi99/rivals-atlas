@@ -7,6 +7,7 @@ and after it (the main ladder was paused and resumed, so the two ran in parallel
 MIN_GAP tiers away from the main chain. The first ~10 matches of a season (placement) form their own short chain at similar tiers, are not
 interleaved with the main chain, and so are not flagged.
 """
+
 from __future__ import annotations
 
 import statistics
@@ -28,7 +29,11 @@ def assign(points: list[dict[str, Any]]) -> list[str]:
         for i in idxs:
             p = points[i]
             start = p["score"] - p["delta"]
-            hit = min((c for c in chains if abs(c["last"] - start) <= TOL), key=lambda c: abs(c["last"] - start), default=None)
+            hit = min(
+                (c for c in chains if abs(c["last"] - start) <= TOL),
+                key=lambda c: abs(c["last"] - start),
+                default=None,
+            )
             if hit is None:
                 hit = {"last": p["score"], "idx": []}
                 chains.append(hit)
@@ -42,7 +47,9 @@ def assign(points: list[dict[str, Any]]) -> list[str]:
             if c is main or len(c["idx"]) < MIN_MATCHES:
                 continue
             t0, t1 = points[c["idx"][0]]["t"], points[c["idx"][-1]]["t"]
-            interleaved = (any(points[i]["t"] < t0 for i in main["idx"]) and any(points[i]["t"] > t1 for i in main["idx"]))
+            interleaved = any(points[i]["t"] < t0 for i in main["idx"]) and any(
+                points[i]["t"] > t1 for i in main["idx"]
+            )
             gap = abs(statistics.median(points[i]["level"] for i in c["idx"]) - main_levels)
             if interleaved and gap >= MIN_GAP:
                 for i in c["idx"]:

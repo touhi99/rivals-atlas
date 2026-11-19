@@ -4,6 +4,7 @@ Rules it keeps: raw files are stored before parsing; one request at a time with 
 a changed shape stops the run at once with no retry; files already stored are skipped, so a run can be
 repeated or resumed; robots.txt is read with this tool's own User-Agent and honoured.
 """
+
 from __future__ import annotations
 
 import json
@@ -57,7 +58,9 @@ class FormatChanged(FetchError):
 
 
 def _urllib_post(url: str) -> tuple[int, bytes]:
-    req = urllib.request.Request(url, data=b"", method="POST", headers={"User-Agent": UA, "Accept": "application/json"})
+    req = urllib.request.Request(
+        url, data=b"", method="POST", headers={"User-Agent": UA, "Accept": "application/json"}
+    )
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.status, r.read()
@@ -79,13 +82,19 @@ def _urllib(url: str) -> tuple[int, bytes]:
 
 
 class Http:
-    def __init__(self, pause: float = 1.0, transport: Callable[[str], tuple[int, bytes]] = _urllib,
-                 poster: Callable[[str], tuple[int, bytes]] | None = None) -> None:
+    def __init__(
+        self,
+        pause: float = 1.0,
+        transport: Callable[[str], tuple[int, bytes]] = _urllib,
+        poster: Callable[[str], tuple[int, bytes]] | None = None,
+    ) -> None:
         self.pause, self.transport = pause, transport
         self.poster = poster or (_urllib_post if transport is _urllib else None)
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> bytes:
-        return self._answer(*self.transport(HOST + path + (("?" + urllib.parse.urlencode(params)) if params else "")))
+        return self._answer(
+            *self.transport(HOST + path + (("?" + urllib.parse.urlencode(params)) if params else ""))
+        )
 
     def post(self, path: str) -> Any:
         assert self.poster is not None
@@ -128,9 +137,15 @@ def check_robots(http: Http, path: str) -> None:
 
 
 def current_season(doc: dict[str, Any]) -> int:
-    seasons = [int(m["match_season"]) for m in doc.get("match_history") or [] if str(m.get("match_season")).isdigit()]
+    seasons = [
+        int(m["match_season"]) for m in doc.get("match_history") or [] if str(m.get("match_season")).isdigit()
+    ]
     info = (doc.get("player") or {}).get("info") or {}
-    ranked = [int(k.rsplit("2001", 1)[1]) for k in info if k.startswith("rank_game_2001") and k.rsplit("2001", 1)[1].isdigit()]
+    ranked = [
+        int(k.rsplit("2001", 1)[1])
+        for k in info
+        if k.startswith("rank_game_2001") and k.rsplit("2001", 1)[1].isdigit()
+    ]
     return max([*seasons, *ranked], default=0)
 
 
@@ -169,7 +184,9 @@ def request_refresh(http: Http, profile: str, progress: Progress) -> str | None:
         wait = REFRESH_COOLDOWN - (int(time.time()) - last)
         if wait > 0:
             return f"The site refreshed this profile {(REFRESH_COOLDOWN - wait) // 60} min ago; its limit allows the next refresh in {wait // 60 + 1} min."
-        progress({"stage": "refresh", "done": 0, "total": 1, "message": "Asking the site to refresh the profile"})
+        progress(
+            {"stage": "refresh", "done": 0, "total": 1, "message": "Asking the site to refresh the profile"}
+        )
         ans = http.post(f"/api/update-player/{profile}")
         if not isinstance(ans, dict) or ans.get("status") != "success":
             return f"The site did not queue a refresh: {(ans or {}).get('message') if isinstance(ans, dict) else 'unknown answer'}."
@@ -178,7 +195,14 @@ def request_refresh(http: Http, profile: str, progress: Progress) -> str | None:
         while time.monotonic() - start < REFRESH_WAIT:
             time.sleep(REFRESH_POLL)
             player = (http.json(f"/api/player/{profile}") or {}).get("player") or {}
-            progress({"stage": "refresh", "done": 0, "total": 1, "message": f"Waiting for the site ({int(time.monotonic() - start)} s)"})
+            progress(
+                {
+                    "stage": "refresh",
+                    "done": 0,
+                    "total": 1,
+                    "message": f"Waiting for the site ({int(time.monotonic() - start)} s)",
+                }
+            )
             if int(player.get("last_history_update") or 0) >= asked:
                 return None
         return "The site queued a refresh but had not finished after 3 minutes; new matches may need another fetch later."
@@ -215,15 +239,24 @@ def fetch_history(http: Http, profile: str, mode: int, raw: Path, progress: Prog
             if isinstance(cached, list) and all(m.get("game_mode_id") == mode for m in cached):
                 page = cached
             else:
-                page = http.json(f"/api/player-match-history/{profile}",
-                                 {"skip": skip, "game_mode_id": mode, "hero_id": 0, "season": season})
+                page = http.json(
+                    f"/api/player-match-history/{profile}",
+                    {"skip": skip, "game_mode_id": mode, "hero_id": 0, "season": season},
+                )
                 if not isinstance(page, list):
                     raise FormatChanged("The match history has an unknown shape.")
                 if any(m.get("game_mode_id") != mode for m in page):
                     raise FormatChanged("The mode filter was not honoured.")
                 f.write_text(json.dumps(page))
             uids += [str(m["match_uid"]) for m in page if "match_uid" in m]
-            progress({"stage": "history", "done": done, "total": top, "message": f"Season {season}: {len(uids)} matches listed"})
+            progress(
+                {
+                    "stage": "history",
+                    "done": done,
+                    "total": top,
+                    "message": f"Season {season}: {len(uids)} matches listed",
+                }
+            )
             if len(page) < PAGE:
                 break
             skip += PAGE
@@ -267,8 +300,16 @@ def fetch_meta(http: Http, base: Path, progress: Progress) -> bool:
     return True
 
 
-def run(profile: str, mode: int, base: Path, limit: int | None = None, http: Http | None = None,
-        progress: Progress = lambda p: None, pace: str = "normal", refresh: bool = True) -> dict[str, Any]:
+def run(
+    profile: str,
+    mode: int,
+    base: Path,
+    limit: int | None = None,
+    http: Http | None = None,
+    progress: Progress = lambda p: None,
+    pace: str = "normal",
+    refresh: bool = True,
+) -> dict[str, Any]:
     """Fetch, then import. Raises FetchError (or a subclass) with a message fit for the user."""
     http = http or Http(pause=PACES.get(pace, 1.0))
     raw = base / "raw"
@@ -291,6 +332,14 @@ def run(profile: str, mode: int, base: Path, limit: int | None = None, http: Htt
     graph.build(con)
     lbug_store.rebuild(con, base / lbug_store.GRAPH_FILE, meta.load(base))
     con.close()
-    progress({"stage": "done", "done": 1, "total": 1, "message": f"Done: {rep.matches} matches in the database"})
-    return {"listed": len(uids), "fetched": new, "imported": rep.matches, "with_history": rep.with_history,
-            "meta_note": meta_note, "refresh_note": refresh_note}
+    progress(
+        {"stage": "done", "done": 1, "total": 1, "message": f"Done: {rep.matches} matches in the database"}
+    )
+    return {
+        "listed": len(uids),
+        "fetched": new,
+        "imported": rep.matches,
+        "with_history": rep.with_history,
+        "meta_note": meta_note,
+        "refresh_note": refresh_note,
+    }

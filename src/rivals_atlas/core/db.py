@@ -1,4 +1,5 @@
 """SQLite store: canonical schema, independent of the source site."""
+
 from __future__ import annotations
 
 import sqlite3

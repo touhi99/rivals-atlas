@@ -7,6 +7,7 @@
 
 The key stays in the environment; nothing here logs it.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -48,17 +49,30 @@ def _build_generator(spec: str | None = None, **generation_kwargs: Any) -> Any:
     url = os.environ.get("RIVALS_ATLAS_LLM_URL")
     if provider == "ollama":
         from haystack_integrations.components.generators.ollama import OllamaChatGenerator
-        return OllamaChatGenerator(model=model, url=url or "http://localhost:11434", timeout=300,
-                                   generation_kwargs={"temperature": 0, **generation_kwargs})
+
+        return OllamaChatGenerator(
+            model=model,
+            url=url or "http://localhost:11434",
+            timeout=300,
+            generation_kwargs={"temperature": 0, **generation_kwargs},
+        )
     if provider == "lmstudio":
-        return OpenAIChatGenerator(model=model, api_base_url=url or "http://localhost:1234/v1", api_key=Secret.from_token("lm-studio"),
-                                   generation_kwargs={"temperature": 0, **generation_kwargs})
+        return OpenAIChatGenerator(
+            model=model,
+            api_base_url=url or "http://localhost:1234/v1",
+            api_key=Secret.from_token("lm-studio"),
+            generation_kwargs={"temperature": 0, **generation_kwargs},
+        )
     if provider == "anthropic":
         from haystack_integrations.components.generators.anthropic import AnthropicChatGenerator
+
         return AnthropicChatGenerator(model=model, generation_kwargs=generation_kwargs or None)
     raise ValueError(f"unknown LLM provider {provider!r}; use ollama, lmstudio or anthropic")
 
 
 def generators(spec: str | None = None) -> dict[str, Any]:
     """One generator per agent name, all the same model."""
-    return {name: make_generator(spec) for name in ("coordinator", "coach", "tilt_guard", "cartographer", "squad_synergy", "matchup_advisor")}
+    return {
+        name: make_generator(spec)
+        for name in ("coordinator", "coach", "tilt_guard", "cartographer", "squad_synergy", "matchup_advisor")
+    }

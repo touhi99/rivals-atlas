@@ -1,4 +1,5 @@
 """Command line: import raw files, fetch from the data site, serve the dashboard, answer questions."""
+
 from __future__ import annotations
 
 import argparse
@@ -24,18 +25,38 @@ def build_parser() -> argparse.ArgumentParser:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("import", help="read data/raw/{matches,history} into the database")
     fe = sub.add_parser("fetch", help="download match history from rivalsmeta (opt-in) and import it")
-    fe.add_argument("--profile", help="profile id (the number in the player page address); saved for next time")
+    fe.add_argument(
+        "--profile", help="profile id (the number in the player page address); saved for next time"
+    )
     fe.add_argument("--mode", type=int, default=2, help="2 ranked, 1 quick play")
     fe.add_argument("--limit", type=int, default=None, help="at most this many new match documents")
-    fe.add_argument("--pace", choices=["normal", "gentle"], default="gentle", help="gentle (default) = one request every 3 seconds, normal = one per second")
-    fe.add_argument("--no-refresh", action="store_true", help="do not ask the site to refresh the profile from the game first")
+    fe.add_argument(
+        "--pace",
+        choices=["normal", "gentle"],
+        default="gentle",
+        help="gentle (default) = one request every 3 seconds, normal = one per second",
+    )
+    fe.add_argument(
+        "--no-refresh",
+        action="store_true",
+        help="do not ask the site to refresh the profile from the game first",
+    )
     fe.add_argument("--yes", action="store_true", help="confirm you have read the notice")
     gr = sub.add_parser("graph", help="rebuild hero synergy and counter edges from stored matches")
-    gr.add_argument("--ladybug", action="store_true", help="also (re)build the LadybugDB projection (data/graph.lbdb)")
-    sub.add_parser("insights", help="let the Coach and Tilt guard find what stands out in the matches (needs a model, see llm.py)")
-    ask = sub.add_parser("ask", help="ask the agents a question about the stored matches (needs a model, see llm.py)")
+    gr.add_argument(
+        "--ladybug", action="store_true", help="also (re)build the LadybugDB projection (data/graph.lbdb)"
+    )
+    sub.add_parser(
+        "insights",
+        help="let the Coach and Tilt guard find what stands out in the matches (needs a model, see llm.py)",
+    )
+    ask = sub.add_parser(
+        "ask", help="ask the agents a question about the stored matches (needs a model, see llm.py)"
+    )
     ask.add_argument("question")
-    ask.add_argument("--agent", choices=["coordinator", "coach", "tilt_guard", "cartographer"], default="coordinator")
+    ask.add_argument(
+        "--agent", choices=["coordinator", "coach", "tilt_guard", "cartographer"], default="coordinator"
+    )
     sv = sub.add_parser("serve", help="start the dashboard")
     sv.add_argument("--port", type=int, default=8000)
     sv.add_argument("--open", action="store_true", help="open the dashboard in the browser once it is ready")
@@ -56,6 +77,7 @@ def cmd_import(a: argparse.Namespace, base: Path) -> int:
 
 def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
     from rivals_atlas.ingest import fetch
+
     st = config.load_settings(base)
     profile = fetch.parse_profile(a.profile) or st.get("profile_id")
     if not profile:
@@ -65,10 +87,19 @@ def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
         print(fetch.NOTICE)
         print("\nRun again with --yes to confirm.")
         return 2
-    config.save_settings({"profile_id": str(profile), "consent_at": st.get("consent_at") or time.time()}, base)
+    config.save_settings(
+        {"profile_id": str(profile), "consent_at": st.get("consent_at") or time.time()}, base
+    )
     try:
-        res = fetch.run(str(profile), a.mode, base, a.limit, pace=a.pace, refresh=not a.no_refresh,
-                        progress=lambda p: print(f"[{p['stage']}] {p['message']}"))
+        res = fetch.run(
+            str(profile),
+            a.mode,
+            base,
+            a.limit,
+            pace=a.pace,
+            refresh=not a.no_refresh,
+            progress=lambda p: print(f"[{p['stage']}] {p['message']}"),
+        )
     except fetch.FetchError as e:
         print(f"Stopped: {e}")
         return 1
@@ -78,6 +109,7 @@ def cmd_fetch(a: argparse.Namespace, base: Path) -> int:
 
 def build_ladybug(con: sqlite3.Connection, base: Path) -> None:
     from rivals_atlas.graph import store as lbug_store
+
     counts = lbug_store.rebuild(con, base / lbug_store.GRAPH_FILE, meta_mod.load(base))
     print(f"LadybugDB graph rebuilt: {counts}")
 
@@ -93,6 +125,7 @@ def cmd_graph(a: argparse.Namespace, base: Path) -> int:
 def cmd_ask(a: argparse.Namespace, base: Path) -> int:
     from rivals_atlas import agents
     from rivals_atlas.agents import llm
+
     db_path = base / "rivals.db"
     if a.agent == "coordinator":
         ans = agents.ask(a.question, llm.generators(), db_path, meta_mod.load(base))
@@ -108,12 +141,20 @@ def cmd_ask(a: argparse.Namespace, base: Path) -> int:
 
 def cmd_insights(a: argparse.Namespace, base: Path) -> int:
     from rivals_atlas.agents import insights
+
     data = insights.generate(config.db_path(), base, meta_mod.load(base))
     print(f"[{data['model']}] {data['scope']}, {data['matches']} matches")
     for o in data["observations"]:
         print(f"\n- [{o['badge']}] {o['text']}")
         for e in o["evidence"]:
-            print(f"    {e['label']}: " + (f"{e['rate']:.0%} ({e['wins']} wins in {e['n']}, range {e['lo']:.0%} to {e['hi']:.0%})" if e["rate"] is not None else f"n={e['n']}"))
+            print(
+                f"    {e['label']}: "
+                + (
+                    f"{e['rate']:.0%} ({e['wins']} wins in {e['n']}, range {e['lo']:.0%} to {e['hi']:.0%})"
+                    if e["rate"] is not None
+                    else f"n={e['n']}"
+                )
+            )
     if not data["observations"]:
         print("\nNo observation survived the check.")
     if data["dropped"]:
@@ -123,6 +164,7 @@ def cmd_insights(a: argparse.Namespace, base: Path) -> int:
 
 def _port_open(port: int) -> bool:
     import socket
+
     with socket.socket() as s:
         s.settimeout(0.2)
         return s.connect_ex(("127.0.0.1", port)) == 0
@@ -131,6 +173,7 @@ def _port_open(port: int) -> bool:
 def _is_ours(port: int) -> bool:
     import json
     import urllib.request
+
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=0.5) as reply:
             return json.load(reply).get("app") == "rivals-atlas"
@@ -169,13 +212,23 @@ def cmd_serve(a: argparse.Namespace, base: Path) -> int:
     if a.open:
         threading.Thread(target=_open_when_ready, args=(port,), daemon=True).start()
     import uvicorn
-    uvicorn.run("rivals_atlas.web.api:app", host="127.0.0.1", port=port, reload=a.reload,
-                reload_dirs=[str(Path(__file__).parent)] if a.reload else None)
+
+    uvicorn.run(
+        "rivals_atlas.web.api:app",
+        host="127.0.0.1",
+        port=port,
+        reload=a.reload,
+        reload_dirs=[str(Path(__file__).parent)] if a.reload else None,
+    )
     return 0
 
 
 COMMANDS: dict[str, Callable[[argparse.Namespace, Path], int]] = {
-    "import": cmd_import, "fetch": cmd_fetch, "graph": cmd_graph, "ask": cmd_ask, "insights": cmd_insights,
+    "import": cmd_import,
+    "fetch": cmd_fetch,
+    "graph": cmd_graph,
+    "ask": cmd_ask,
+    "insights": cmd_insights,
     "serve": cmd_serve,
 }
 

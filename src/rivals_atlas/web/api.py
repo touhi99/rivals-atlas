@@ -1,4 +1,5 @@
 """The JSON API and the built React app. The database is opened read-only."""
+
 from __future__ import annotations
 
 import os
@@ -56,8 +57,14 @@ def get_filter(request: Request) -> Filter:
         return int(v) if v and v.lstrip("-").isdigit() else None
 
     mode = num("mode")
-    return Filter(mode=2 if mode is None else mode, season_from=num("season_from"), season_to=num("season_to"),
-                  hero=num("hero"), map_id=num("map_id"), with_players=tuple(x for x in q.getlist("with") if x))
+    return Filter(
+        mode=2 if mode is None else mode,
+        season_from=num("season_from"),
+        season_to=num("season_to"),
+        hero=num("hero"),
+        map_id=num("map_id"),
+        with_players=tuple(x for x in q.getlist("with") if x),
+    )
 
 
 Flt = Depends(get_filter)
@@ -130,18 +137,51 @@ def meta_context(con, f: Filter) -> dict:
         return {"meta": None, "meta_group": "all", "meta_label": "all ranks"}
     level = None
     if f.mode in (0, 2):
-        pts = [p for p in stats.rank_journey(con, f.replace(hero=None, map_id=None, with_players=(), season_from=None, season_to=None)) if p["new_level"]]
-        main = [p for p, fl in zip(pts, ladders.assign([{"season": p["season"], "t": p["played_at"], "score": p["new_score"], "delta": p["add_score"], "level": p["new_level"]} for p in pts]), strict=True) if fl == "main"]
+        pts = [
+            p
+            for p in stats.rank_journey(
+                con, f.replace(hero=None, map_id=None, with_players=(), season_from=None, season_to=None)
+            )
+            if p["new_level"]
+        ]
+        main = [
+            p
+            for p, fl in zip(
+                pts,
+                ladders.assign(
+                    [
+                        {
+                            "season": p["season"],
+                            "t": p["played_at"],
+                            "score": p["new_score"],
+                            "delta": p["add_score"],
+                            "level": p["new_level"],
+                        }
+                        for p in pts
+                    ]
+                ),
+                strict=True,
+            )
+            if fl == "main"
+        ]
         level = main[-1]["new_level"] if main else None
     g = meta.group_for_level(level, m) if level else "all"
-    return {"meta": m, "meta_group": g, "meta_label": m["ranks"].get(g, "all ranks") if g != "all" else "all ranks"}
+    return {
+        "meta": m,
+        "meta_group": g,
+        "meta_label": m["ranks"].get(g, "all ranks") if g != "all" else "all ranks",
+    }
 
 
 def totals(hs: list[dict]) -> dict:
     wins = sum(h["wins"] for h in hs)
     losses = sum(h["n"] - h["wins"] for h in hs)
-    return {**stats.rate(wins, losses), "losses": losses, "draws": sum(h["draws"] for h in hs),
-            "games": sum(h["games"] for h in hs)}
+    return {
+        **stats.rate(wins, losses),
+        "losses": losses,
+        "draws": sum(h["draws"] for h in hs),
+        "games": sum(h["games"] for h in hs),
+    }
 
 
 def overview_data(con, f: Filter) -> dict:
@@ -151,18 +191,32 @@ def overview_data(con, f: Filter) -> dict:
     seasons, last = [], None
     for p in pts:
         p["tier"] = names.tier_name(p["new_level"])
-        p["t"], p["level"], p["score"], p["delta"] = p["played_at"], p["new_level"], p["new_score"], p["add_score"]
+        p["t"], p["level"], p["score"], p["delta"] = (
+            p["played_at"],
+            p["new_level"],
+            p["new_score"],
+            p["add_score"],
+        )
         if p["season"] != last:
             seasons.append({"t": p["t"], "season": p["season"], "label": names.season_label(p["season"])})
             last = p["season"]
     for p, flag in zip(pts, ladders.assign(pts), strict=True):
         p["ladder"] = flag
     main_pts = [p for p in pts if p["ladder"] == "main"] or pts
-    tiers = [{"level": lv, "floor": t["score"], "label": t["label"]} for lv, t in
-             zip(sorted({p["new_level"] for p in main_pts}), tier_ticks(main_pts), strict=True)]
-    return {"heroes": hs, "tot": totals(hs), "pat": patterns.compute(con, f),
-            "rank_peak": names.tier_name(max((p["new_level"] or 0) for p in main_pts)) if pts else "", "rank_main": main_pts[-1] if pts else None,
-            "rank_pts": pts, "rank_tiers": tiers, "rank_seasons": seasons}
+    tiers = [
+        {"level": lv, "floor": t["score"], "label": t["label"]}
+        for lv, t in zip(sorted({p["new_level"] for p in main_pts}), tier_ticks(main_pts), strict=True)
+    ]
+    return {
+        "heroes": hs,
+        "tot": totals(hs),
+        "pat": patterns.compute(con, f),
+        "rank_peak": names.tier_name(max((p["new_level"] or 0) for p in main_pts)) if pts else "",
+        "rank_main": main_pts[-1] if pts else None,
+        "rank_pts": pts,
+        "rank_tiers": tiers,
+        "rank_seasons": seasons,
+    }
 
 
 RELS = ("teammates", "enemies", "lobby", "maps")
@@ -195,17 +249,23 @@ def _default_min(games: int, rel: str) -> int:
 @app.get("/api/ask")
 def ask_json():
     """What the Ask tab shows before the first question."""
-    return {"model": llm.setting(config.data_dir()),
-            "examples": ["How many times did the player win and lose as Loki against Black Panther?",
-                         "Which heroes do wins come with most when Loki is played in ranked?",
-                         "Win rate on each map in ranked, best first."]}
+    return {
+        "model": llm.setting(config.data_dir()),
+        "examples": [
+            "How many times did the player win and lose as Loki against Black Panther?",
+            "Which heroes do wins come with most when Loki is played in ranked?",
+            "Win rate on each map in ranked, best first.",
+        ],
+    }
 
 
 @app.get("/graph")
 @app.get("/connections")
 @app.get("/map")
 def graph_redirect(request: Request):
-    return RedirectResponse("/explore?view=graph&go=1" + ("&" + request.url.query if request.url.query else ""))
+    return RedirectResponse(
+        "/explore?view=graph&go=1" + ("&" + request.url.query if request.url.query else "")
+    )
 
 
 JOB: dict = {"state": "idle"}
@@ -215,6 +275,7 @@ _lock = threading.Lock()
 def _run_job(profile: str, mode: int, limit: int | None, pace: str) -> None:
     def progress(p: dict) -> None:
         JOB.update(stage=p["stage"], done=p["done"], total=p["total"], message=p["message"])
+
     try:
         res = fetch.run(profile, mode, config.data_dir(), limit, progress=progress, pace=pace)
         JOB.update(state="done", result=res)
@@ -232,7 +293,9 @@ async def fetch_start(request: Request):
     body = await request.json()
     profile = fetch.parse_profile(str(body.get("profile", "")))
     if not profile:
-        raise HTTPException(400, "Paste the address of the player's page (it ends with a number), or just the number.")
+        raise HTTPException(
+            400, "Paste the address of the player's page (it ends with a number), or just the number."
+        )
     if not body.get("consent"):
         raise HTTPException(400, "Please confirm the notice first.")
     mode = int(body.get("mode") or 2)
@@ -244,7 +307,9 @@ async def fetch_start(request: Request):
         st = config.load_settings()
         config.save_settings({"profile_id": profile, "consent_at": st.get("consent_at") or time.time()})
         JOB.clear()
-        JOB.update(state="running", stage="starting", done=0, total=1, message="Starting", started_at=time.time())
+        JOB.update(
+            state="running", stage="starting", done=0, total=1, message="Starting", started_at=time.time()
+        )
         threading.Thread(target=_run_job, args=(profile, mode, limit, pace), daemon=True).start()
     return JOB
 
@@ -257,8 +322,13 @@ def fetch_status():
 @app.get("/api/data")
 def data_json(con=Con):
     st = config.load_settings()
-    return {"inv": inventory.inventory(con, config.data_dir()), "notice": fetch.NOTICE, "profile": st.get("profile_id", ""),
-            "consented": bool(st.get("consent_at")), "matches": stats.overview(con)["n"]}
+    return {
+        "inv": inventory.inventory(con, config.data_dir()),
+        "notice": fetch.NOTICE,
+        "profile": st.get("profile_id", ""),
+        "consented": bool(st.get("consent_at")),
+        "matches": stats.overview(con)["n"],
+    }
 
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -268,7 +338,11 @@ def _record_use() -> None:
     """Note one page load in aimon (a local usage monitor) when it is installed; it keeps one per hour."""
     exe = shutil.which("aimon") or str(Path.home() / ".local/bin/aimon")
     if Path(exe).is_file():
-        subprocess.Popen([exe, "use", "rivals-atlas", "--via", "web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(
+            [exe, "use", "rivals-atlas", "--via", "web"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+
+
 app.mount("/assets", StaticFiles(directory=str(UI_DIR / "assets"), check_dir=False), name="ui-assets")
 
 
@@ -276,13 +350,27 @@ def spa(request: Request):
     """The React app: one HTML file, the browser's router picks the view."""
     index = UI_DIR / "index.html"
     if not index.exists():
-        raise HTTPException(404, "The UI is not built yet: run ./scripts/setup.sh (or `npm run build` in frontend/)")
+        raise HTTPException(
+            404, "The UI is not built yet: run ./scripts/setup.sh (or `npm run build` in frontend/)"
+        )
     from fastapi.responses import FileResponse
+
     _record_use()
     return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
-for _path in ("/", "/heroes", "/heroes/{hero_id}", "/maps", "/patterns", "/squad", "/data", "/explore", "/agents", "/ask"):
+for _path in (
+    "/",
+    "/heroes",
+    "/heroes/{hero_id}",
+    "/maps",
+    "/patterns",
+    "/squad",
+    "/data",
+    "/explore",
+    "/agents",
+    "/ask",
+):
     app.get(_path, include_in_schema=False)(spa)
 
 

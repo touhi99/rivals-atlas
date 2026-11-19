@@ -1,5 +1,6 @@
 """Hero and map names. Heroes come from a checked-in seed (id to name). Maps have no source yet:
 the user can name them in <data dir>/maps.json, {"1245": "Name"}. Anything unknown shows its id."""
+
 from __future__ import annotations
 
 import json
@@ -64,7 +65,9 @@ def map_name(map_id: int | str | None) -> str:
     return _maps().get(str(map_id)) or f"Map {map_id}"
 
 
-PORTRAIT = "https://rivalsmeta.com/_ipx/w_120&q_70/images/heroes/OriginalSkin/img_heroportrait_{id}0010_portrait.png"
+PORTRAIT = (
+    "https://rivalsmeta.com/_ipx/w_120&q_70/images/heroes/OriginalSkin/img_heroportrait_{id}0010_portrait.png"
+)
 
 
 def hero_icon(hero_id: int | str | None) -> str | None:

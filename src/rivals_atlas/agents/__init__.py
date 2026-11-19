@@ -4,6 +4,7 @@ All numbers reach the player through the Ledger: tools record the Findings they 
 checker at once, and `Ledger.report()` prints only checked claims. The model's own prose is kept but labelled unchecked.
 Tools open their own read-only connection per call because Haystack runs tools in worker threads.
 """
+
 from __future__ import annotations
 
 import threading
@@ -29,7 +30,11 @@ MAX_STEPS = 12
 
 def prompt(name: str, insights: bool = False) -> str:
     if insights:
-        return (PROMPTS / f"insights_{name}.md").read_text().strip() + "\n\n" + (PROMPTS / "_rules_insights.md").read_text().strip()
+        return (
+            (PROMPTS / f"insights_{name}.md").read_text().strip()
+            + "\n\n"
+            + (PROMPTS / "_rules_insights.md").read_text().strip()
+        )
     text = (PROMPTS / f"{name}.md").read_text().strip()
     if name == "cartographer":
         text += "\n\n" + lbug_store.schema_prompt()
@@ -48,27 +53,43 @@ def data_context(db_path: Path | str, top: int = 8, insights: bool = False) -> s
     f = Filter(mode=2, season_from=s0, season_to=s0)
     heroes = sorted(stats.heroes(con, f), key=lambda h: -h["games"])[:top]
     maps = sorted(stats.maps(con, f), key=lambda m: -m["games"])[:top]
-    lines = [(f"The player's data: the latest ranked season is {names.season_label(s0)}. In tool calls it is season_from={s0}, "
-              f"season_to={s0}, mode=2. Use these unless the question asks for something else."),
-             "Most played heroes this season (hero id, games): " + ", ".join(
-                 f"{names.hero_name(h['hero_id'])} (id {h['hero_id']}, {h['games']})" for h in heroes),
-             "Most played maps this season (map id, games): " + ", ".join(
-                 f"{names.map_name(m['map_id'])} (id {m['map_id']}, {m['games']})" for m in maps)]
+    lines = [
+        (
+            f"The player's data: the latest ranked season is {names.season_label(s0)}. In tool calls it is season_from={s0}, "
+            f"season_to={s0}, mode=2. Use these unless the question asks for something else."
+        ),
+        "Most played heroes this season (hero id, games): "
+        + ", ".join(f"{names.hero_name(h['hero_id'])} (id {h['hero_id']}, {h['games']})" for h in heroes),
+        "Most played maps this season (map id, games): "
+        + ", ".join(f"{names.map_name(m['map_id'])} (id {m['map_id']}, {m['games']})" for m in maps),
+    ]
     if insights:
         counts = dict(con.execute("SELECT mode_id, COUNT(*) FROM matches GROUP BY mode_id").fetchall())
-        lines.append("Games stored: " + ", ".join(f"{label} {counts.get(mode, 0)}" for mode, label in ((2, "ranked"), (1, "quick play")))
-                     + ". The mode with more games shows clear differences more often.")
+        lines.append(
+            "Games stored: "
+            + ", ".join(
+                f"{label} {counts.get(mode, 0)}" for mode, label in ((2, "ranked"), (1, "quick play"))
+            )
+            + ". The mode with more games shows clear differences more often."
+        )
         for mode, label in ((2, "ranked"), (1, "quick play")):
             every = sorted(stats.heroes(con, Filter(mode=mode)), key=lambda h: -h["games"])[:top]
-            lines.append(f"Most played heroes over all {label} seasons, mode={mode} (hero id, games): " + ", ".join(
-                f"{names.hero_name(h['hero_id'])} (id {h['hero_id']}, {h['games']})" for h in every))
-        lines.append(f"For earlier ranked play use season_to={s0 - 1} and no season_from. Leave the season out to use every season.")
+            lines.append(
+                f"Most played heroes over all {label} seasons, mode={mode} (hero id, games): "
+                + ", ".join(
+                    f"{names.hero_name(h['hero_id'])} (id {h['hero_id']}, {h['games']})" for h in every
+                )
+            )
+        lines.append(
+            f"For earlier ranked play use season_to={s0 - 1} and no season_from. Leave the season out to use every season."
+        )
     return "\n\n" + "\n".join(lines)
 
 
 @dataclass
 class Ledger:
     """What happened during one question: every tool result and every checked claim. Shared by all agents of the run."""
+
     findings: list[tools.Finding] = field(default_factory=list)
     verdicts: list[evidence.Verdict] = field(default_factory=list)
     observations: list[obs.Observation] = field(default_factory=list)
@@ -114,23 +135,42 @@ class Ledger:
         lines = []
         for v in shown:
             ids = v.finding.match_ids if v.status == "ok" and v.finding else []
-            lines.append(f"- {v.text}" + (f" Matches: {', '.join(ids[:5])}{' ...' if len(ids) > 5 else ''}" if ids else ""))
+            lines.append(
+                f"- {v.text}"
+                + (f" Matches: {', '.join(ids[:5])}{' ...' if len(ids) > 5 else ''}" if ids else "")
+            )
         if dropped:
-            lines.append(f"({dropped} claim{'s' if dropped != 1 else ''} removed because the numbers did not match the data.)")
+            lines.append(
+                f"({dropped} claim{'s' if dropped != 1 else ''} removed because the numbers did not match the data.)"
+            )
         return "\n".join(lines)
 
 
 def claim_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None) -> Tool:
-    def record_claim(text: str, tool: str, args: dict[str, Any], n: int, wins: int | None = None, rate: float | None = None,
-                     match_ids: list[str] | None = None) -> str:
+    def record_claim(
+        text: str,
+        tool: str,
+        args: dict[str, Any],
+        n: int,
+        wins: int | None = None,
+        rate: float | None = None,
+        match_ids: list[str] | None = None,
+    ) -> str:
         """Record one statement for the answer. The app re-runs `tool` with `args` and compares n, wins, rate and match ids."""
-        v = evidence.check(db.connect_readonly(db_path), evidence.Claim(text, tool, args, n, wins, rate, match_ids or []), meta)
+        v = evidence.check(
+            db.connect_readonly(db_path),
+            evidence.Claim(text, tool, args, n, wins, rate, match_ids or []),
+            meta,
+        )
         ledger.add_verdict(v)
         return f"{v.status}: {v.reason or 'accepted'}"
+
     return create_tool_from_function(record_claim)
 
 
-def observation_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None, agent: str = "") -> Tool:
+def observation_tool(
+    db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None, agent: str = ""
+) -> Tool:
     def record_observation(text: str, relation: str, evidence: list[dict[str, Any]]) -> str:
         """Record one observation for the page: one short sentence with no digits, a relation (higher, lower, similar, above_even,
         below_even, above_site, below_site, rose, fell) and the tool calls it rests on, each {"tool": name, "args": {...}}. The
@@ -142,21 +182,40 @@ def observation_tool(db_path: Path | str, ledger: Ledger, meta: dict[str, Any] |
         r.agent = agent
         ledger.add_observation(r)
         return "accepted"
+
     return create_tool_from_function(record_observation)
 
 
 SPECIALISTS = {
-    "coach": ("Recap of play: heroes, maps, rank score, session positions.",
-              ("hero_stats", "map_stats", "rank_journey", "session_stats", "compare_to_meta", "match_lookup", "graph_pattern",
-               "hero_benchmark")),
-    "tilt_guard": ("Checks whether results change by position in a session.",
-                   ("session_stats", "hero_stats", "rank_journey")),
-    "squad_synergy": ("Whether results differ with a regular teammate on the same side, and on which heroes or maps.",
-                      ("squad_stats", "graph_neighbors", "hero_stats", "map_stats")),
-    "matchup_advisor": ("Which enemy heroes and bans go with better or worse results for the player.",
-                        ("matchup_table", "matchup_stats", "graph_pattern", "hero_stats", "map_stats")),
-    "cartographer": ("Any question about matches, heroes, opponents, teammates, comps: writes a read-only graph query.",
-                     ("cypher_query", "comp_stats", "hero_benchmark", "graph_pattern", "match_lookup")),
+    "coach": (
+        "Recap of play: heroes, maps, rank score, session positions.",
+        (
+            "hero_stats",
+            "map_stats",
+            "rank_journey",
+            "session_stats",
+            "compare_to_meta",
+            "match_lookup",
+            "graph_pattern",
+            "hero_benchmark",
+        ),
+    ),
+    "tilt_guard": (
+        "Checks whether results change by position in a session.",
+        ("session_stats", "hero_stats", "rank_journey"),
+    ),
+    "squad_synergy": (
+        "Whether results differ with a regular teammate on the same side, and on which heroes or maps.",
+        ("squad_stats", "graph_neighbors", "hero_stats", "map_stats"),
+    ),
+    "matchup_advisor": (
+        "Which enemy heroes and bans go with better or worse results for the player.",
+        ("matchup_table", "matchup_stats", "graph_pattern", "hero_stats", "map_stats"),
+    ),
+    "cartographer": (
+        "Any question about matches, heroes, opponents, teammates, comps: writes a read-only graph query.",
+        ("cypher_query", "comp_stats", "hero_benchmark", "graph_pattern", "match_lookup"),
+    ),
 }
 
 
@@ -169,33 +228,66 @@ def squad_context(db_path: Path | str, top: int = 6) -> str:
     mates = stats.squad(con, Filter(mode=0), min_games=queries.REGULAR_GAMES)[:top]
     if not mates:
         return "\n\nThe player has no regular teammates yet, so there is nothing to compare."
-    return ("\n\nRegular teammates over all modes (teammate id to use in tool calls, games together): "
-            + ", ".join(f"{m['player_id'][:8]} ({m['games']})" for m in mates))
+    return (
+        "\n\nRegular teammates over all modes (teammate id to use in tool calls, games together): "
+        + ", ".join(f"{m['player_id'][:8]} ({m['games']})" for m in mates)
+    )
 
 
-def specialist(name: str, chat_generator: Any, db_path: Path | str, ledger: Ledger, meta: dict[str, Any] | None = None,
-               insights: bool = False) -> Agent:
+def specialist(
+    name: str,
+    chat_generator: Any,
+    db_path: Path | str,
+    ledger: Ledger,
+    meta: dict[str, Any] | None = None,
+    insights: bool = False,
+) -> Agent:
     _, tool_names = SPECIALISTS[name]
     if insights:
         extra = [observation_tool(db_path, ledger, meta, name)]
     else:
         extra = [] if name == "cartographer" else [claim_tool(db_path, ledger, meta)]
-    system = prompt(name, insights) + ("" if name == "cartographer" else data_context(db_path, insights=insights))
+    system = prompt(name, insights) + (
+        "" if name == "cartographer" else data_context(db_path, insights=insights)
+    )
     if name == "squad_synergy":
         system += squad_context(db_path)
-    return Agent(chat_generator=chat_generator, system_prompt=system, max_agent_steps=MAX_STEPS * 2 if insights else MAX_STEPS,
-                 tools=[RivalsToolset(db_path, tool_names, meta, ledger), *extra], hooks=HOOKS, state_schema=STATE_SCHEMA)
+    return Agent(
+        chat_generator=chat_generator,
+        system_prompt=system,
+        max_agent_steps=MAX_STEPS * 2 if insights else MAX_STEPS,
+        tools=[RivalsToolset(db_path, tool_names, meta, ledger), *extra],
+        hooks=HOOKS,
+        state_schema=STATE_SCHEMA,
+    )
 
 
-def coordinator(chat_generators: dict[str, Any], db_path: Path | str, ledger: Ledger,
-                meta: dict[str, Any] | None = None, insights: bool = False) -> Agent:
+def coordinator(
+    chat_generators: dict[str, Any],
+    db_path: Path | str,
+    ledger: Ledger,
+    meta: dict[str, Any] | None = None,
+    insights: bool = False,
+) -> Agent:
     """chat_generators: one per agent name ('coordinator', 'coach', 'tilt_guard'); tests pass MockChatGenerators."""
     roster = [n for n in SPECIALISTS if (n != "cartographer" if insights else n not in INSIGHTS_ONLY)]
-    team = [AgentTool(specialist(n, chat_generators[n], db_path, ledger, meta, insights), name=n, description=SPECIALISTS[n][0])
-            for n in roster]
+    team = [
+        AgentTool(
+            specialist(n, chat_generators[n], db_path, ledger, meta, insights),
+            name=n,
+            description=SPECIALISTS[n][0],
+        )
+        for n in roster
+    ]
     system = (PROMPTS / "insights_coordinator.md").read_text().strip() if insights else prompt("coordinator")
-    return Agent(chat_generator=chat_generators["coordinator"], system_prompt=system, tools=team,
-                 max_agent_steps=MAX_STEPS, hooks=HOOKS, state_schema=STATE_SCHEMA)
+    return Agent(
+        chat_generator=chat_generators["coordinator"],
+        system_prompt=system,
+        tools=team,
+        max_agent_steps=MAX_STEPS,
+        hooks=HOOKS,
+        state_schema=STATE_SCHEMA,
+    )
 
 
 @dataclass
@@ -206,21 +298,37 @@ class Answer:
     unverified: list[str] = field(default_factory=list)
 
 
-def ask(question: str, chat_generators: dict[str, Any], db_path: Path | str, meta: dict[str, Any] | None = None,
-        ledger: Ledger | None = None, insights: bool = False) -> Answer:
+def ask(
+    question: str,
+    chat_generators: dict[str, Any],
+    db_path: Path | str,
+    meta: dict[str, Any] | None = None,
+    ledger: Ledger | None = None,
+    insights: bool = False,
+) -> Answer:
     """`ledger` may be passed in so a caller (the web page) can watch findings arrive while the agents run."""
     from haystack.dataclasses import ChatMessage
+
     ledger = ledger or Ledger()
     out = coordinator(chat_generators, db_path, ledger, meta, insights).run(
-        messages=[ChatMessage.from_user(question)], hook_context={"ledger": ledger, "question": question})
+        messages=[ChatMessage.from_user(question)], hook_context={"ledger": ledger, "question": question}
+    )
     return Answer(out["last_message"].text or "", ledger.report(), ledger, out.get("unverified_numbers", []))
 
 
-def ask_specialist(name: str, question: str, chat_generator: Any, db_path: Path | str,
-                   meta: dict[str, Any] | None = None, ledger: Ledger | None = None) -> Answer:
+def ask_specialist(
+    name: str,
+    question: str,
+    chat_generator: Any,
+    db_path: Path | str,
+    meta: dict[str, Any] | None = None,
+    ledger: Ledger | None = None,
+) -> Answer:
     """Run one specialist directly, without the Coordinator: two model calls fewer (about 7 s with Haiku)."""
     from haystack.dataclasses import ChatMessage
+
     ledger = ledger or Ledger()
     out = specialist(name, chat_generator, db_path, ledger, meta).run(
-        messages=[ChatMessage.from_user(question)], hook_context={"ledger": ledger, "question": question})
+        messages=[ChatMessage.from_user(question)], hook_context={"ledger": ledger, "question": question}
+    )
     return Answer(out["last_message"].text or "", ledger.report(), ledger, out.get("unverified_numbers", []))

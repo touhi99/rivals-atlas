@@ -3,6 +3,7 @@ insights and the API can never disagree about which matches are in play.
 
 Aliases in the condition: p = the tracked player's match_players row, m = matches.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,21 +27,27 @@ class Filter:
             parts.append("m.mode_id = ?")
             args.append(self.mode)
         if self.season_from is not None:
-            parts.append("m.season >= ?"); args.append(self.season_from)
+            parts.append("m.season >= ?")
+            args.append(self.season_from)
         if self.season_to is not None:
-            parts.append("m.season <= ?"); args.append(self.season_to)
+            parts.append("m.season <= ?")
+            args.append(self.season_to)
         if self.hero is not None:
-            parts.append("p.hero_id = ?"); args.append(self.hero)
+            parts.append("p.hero_id = ?")
+            args.append(self.hero)
         if self.map_id is not None:
             from rivals_atlas.core.names import (
                 same_map_ids,
             )
+
             ids = same_map_ids(self.map_id)
             parts.append(f"m.map_id IN ({','.join('?' * len(ids))})")
             args.extend(ids)
         for h in self.with_players:
-            parts.append("EXISTS (SELECT 1 FROM match_players t WHERE t.match_uid = p.match_uid "
-                         "AND t.player_id = ? AND t.camp = p.camp)")
+            parts.append(
+                "EXISTS (SELECT 1 FROM match_players t WHERE t.match_uid = p.match_uid "
+                "AND t.player_id = ? AND t.camp = p.camp)"
+            )
             args.append(h)
         return " AND ".join(parts) or "1=1", args
 
@@ -50,10 +57,21 @@ class Filter:
 
     def query(self, **over) -> str:
         """URL query string for this filter with some fields replaced (None removes a field)."""
-        d = {"mode": self.mode, "season_from": self.season_from, "season_to": self.season_to,
-             "hero": self.hero, "map_id": self.map_id, "with": list(self.with_players)}
+        d = {
+            "mode": self.mode,
+            "season_from": self.season_from,
+            "season_to": self.season_to,
+            "hero": self.hero,
+            "map_id": self.map_id,
+            "with": list(self.with_players),
+        }
         d.update(over)
-        flat = [(k, x) for k, v in d.items() for x in (v if isinstance(v, list) else [v]) if x not in (None, "", [])]
+        flat = [
+            (k, x)
+            for k, v in d.items()
+            for x in (v if isinstance(v, list) else [v])
+            if x not in (None, "", [])
+        ]
         return urlencode(flat)
 
     def replace(self, **kw) -> Filter:

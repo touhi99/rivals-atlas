@@ -3,6 +3,7 @@
 Everything shown as a number comes from the Ledger (tool results and checked claims). The model's own words are sent
 separately and labelled unchecked.
 """
+
 from __future__ import annotations
 
 import threading
@@ -31,10 +32,23 @@ def _steps(ledger: agents.Ledger) -> dict[str, Any]:
     findings, verdicts = ledger.snapshot()
     return {
         "queries": [f.args["cypher"] for f in findings if f.tool == "cypher_query"],
-        "calls": [{"tool": f.tool, "cypher": f.args.get("cypher") if f.tool == "cypher_query" else None, "label": describe_args(f.args),
-                   "n": f.n, "text": f.describe(), "rows": f.items[:60] if f.tool == "cypher_query" else []} for f in findings],
+        "calls": [
+            {
+                "tool": f.tool,
+                "cypher": f.args.get("cypher") if f.tool == "cypher_query" else None,
+                "label": describe_args(f.args),
+                "n": f.n,
+                "text": f.describe(),
+                "rows": f.items[:60] if f.tool == "cypher_query" else [],
+            }
+            for f in findings
+        ],
         "results": list(dict.fromkeys(f.describe() for f in findings)),
-        "checked": [{"text": v.text, "matches": v.finding.match_ids[:5] if v.finding else []} for v in verdicts if v.shown],
+        "checked": [
+            {"text": v.text, "matches": v.finding.match_ids[:5] if v.finding else []}
+            for v in verdicts
+            if v.shown
+        ],
         "removed": sum(not v.shown for v in verdicts),
     }
 
@@ -44,7 +58,9 @@ def _run(job_id: str, question: str) -> None:
     ledger: agents.Ledger = job["ledger"]
     try:
         base = config.data_dir()
-        ans = agents.ask_specialist(AGENT, question, llm.make_generator(), config.db_path(), meta.load(base), ledger)
+        ans = agents.ask_specialist(
+            AGENT, question, llm.make_generator(), config.db_path(), meta.load(base), ledger
+        )
         job.update(state="done", framing=ans.framing, unverified=ans.unverified, model=llm.setting(base))
     except Exception as e:  # noqa: BLE001                                           # a model or network problem must reach the page
         job.update(state="error", error=f"{type(e).__name__}: {str(e)[:300]}")
@@ -63,7 +79,12 @@ async def ask_start(request: Request):
         if any(j["state"] == "running" for j in JOBS.values()):
             raise HTTPException(409, "A question is already running.")
         job_id = uuid.uuid4().hex[:12]
-        JOBS[job_id] = {"state": "running", "question": question, "ledger": agents.Ledger(), "started_at": time.time()}
+        JOBS[job_id] = {
+            "state": "running",
+            "question": question,
+            "ledger": agents.Ledger(),
+            "started_at": time.time(),
+        }
         for old in sorted(JOBS, key=lambda k: JOBS[k]["started_at"])[:-MAX_JOBS]:
             del JOBS[old]
         threading.Thread(target=_run, args=(job_id, question), daemon=True).start()
@@ -76,4 +97,8 @@ def ask_status(job_id: str):
     if job is None:
         raise HTTPException(404, "Unknown question")
     out = {k: v for k, v in job.items() if k != "ledger"}
-    return {**out, **_steps(job["ledger"]), "seconds": round((job.get("finished_at") or time.time()) - job["started_at"], 1)}
+    return {
+        **out,
+        **_steps(job["ledger"]),
+        "seconds": round((job.get("finished_at") or time.time()) - job["started_at"], 1),
+    }
