@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react'
+import { useState } from 'react'
 import { Panel, RangeRow, Spinner } from '@/components/bits'
 import Layout from '@/components/Layout'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -29,7 +30,6 @@ function PatternCard({ c }: { c: Card }) {
   )
 }
 
-/** Weekday by time of day: every cell shows its win rate, with the number of games under it. */
 function Heat({ heat }: { heat: NonNullable<PatternsData['heat']> }) {
   const cell = (d: number, b: number) => heat.cells.find((c) => c.d === d && c.b === b)
   const busiest = [...heat.cells].sort((a, b) => b.games - a.games)[0]
@@ -63,11 +63,10 @@ function Heat({ heat }: { heat: NonNullable<PatternsData['heat']> }) {
   )
 }
 
-/** One square per calendar day, 26 weeks: colour = win rate that day, strength = how many games were played. */
 function Calendar({ days }: { days: NonNullable<PatternsData['days']> }) {
   const byDay = new Map(days.map((d) => [d.day, d]))
-  const end = new Date(); end.setHours(0, 0, 0, 0)
-  const start = new Date(end); start.setDate(start.getDate() - 7 * 26 + 1); start.setDate(start.getDate() - ((start.getDay() + 6) % 7))   // back to a Monday
+  const [end] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
+  const start = new Date(end); start.setDate(start.getDate() - 7 * 26 + 1); start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
   const weeks: { date: Date; key: string }[][] = []
   for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const i = Math.floor((d.getTime() - start.getTime()) / 86400000 / 7)

@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from 'recharts'
-import { AXIS } from '@/components/charts'
+import { AXIS } from '@/lib/chart-style'
 import { Link, useParams } from 'react-router-dom'
 import { HeroFace, MapBanner, Panel, RangeRow, RoleChip, StatTile, Spinner, WinBar, Mastery } from '@/components/bits'
 import Layout from '@/components/Layout'

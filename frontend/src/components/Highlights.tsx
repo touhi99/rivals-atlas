@@ -5,7 +5,6 @@ import type { OverviewData } from '@/lib/api'
 type Fact = OverviewData['facts'][number]
 const num = (f: Fact, k: string) => Number(f.data[k] ?? 0)
 
-/** A thin ring that fills to a share of 100%. */
 function Ring({ value, color, children, size = 72 }: { value: number; color: string; children?: ReactNode; size?: number }) {
   const r = 30, c = 2 * Math.PI * r
   return (

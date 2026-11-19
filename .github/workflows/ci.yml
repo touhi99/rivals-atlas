@@ -12,6 +12,11 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - if: runner.os == 'macOS'
         run: brew install openssl@3        # LadybugDB's macOS wheel links to Homebrew's OpenSSL
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - run: uv sync
-      - run: uv run ruff check src
-      - run: uv run mypy src
+      - run: npm ci
+        working-directory: frontend
+      - run: scripts/check
+        shell: bash

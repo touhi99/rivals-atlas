@@ -41,7 +41,6 @@ export async function getJson<T>(path: string): Promise<T> {
   return (await fetch(path)).json() as Promise<T>
 }
 
-/** POST JSON to the app. The header is what the server checks (see web/guard.py). */
 export function postJson(path: string, body: unknown): Promise<Response> {
   return fetch(path, {
     method: 'POST',
@@ -61,7 +60,6 @@ export function useApi<T>(path: string, query: string): { data: T | null; error:
       .catch((e: Error) => live && setState({ key, data: null, error: e.message }))
     return () => { live = false }
   }, [key, path, query])
-  // keep showing the previous data while a new filter loads
   return { data: state.data, error: state.key === key ? state.error : null, loading: state.key !== key }
 }
 

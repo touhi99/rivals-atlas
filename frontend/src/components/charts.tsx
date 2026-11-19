@@ -1,12 +1,8 @@
 import { Cell, Pie, PieChart, PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from 'recharts'
+import { LOSS, WIN } from '@/lib/chart-style'
 import { cn } from '@/lib/utils'
 
-export const WIN = '#10b981'
-export const LOSS = '#f97316'
-export const AXIS = { fontSize: 11, fill: 'var(--muted-foreground)' }
-export const TIP = { background: 'var(--popover)', color: 'var(--popover-foreground)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }
 
-/** A ring that fills to the win rate: blue above 50%, orange below. The number sits in the middle. */
 export function Gauge({ value, label, size = 120 }: { value: number | null; label?: string; size?: number }) {
   const v = value == null ? 0 : value * 100
   const colour = value == null ? 'var(--muted)' : value >= 0.5 ? WIN : LOSS
@@ -54,7 +50,6 @@ export function RoleDonut({ roles }: { roles: { role: string; games: number }[] 
   )
 }
 
-/** The last games as a row of dots, newest on the right. */
 export function FormStrip({ form }: { form: string[] }) {
   return (
     <div className="flex flex-wrap gap-1">
@@ -65,12 +60,4 @@ export function FormStrip({ form }: { form: string[] }) {
       ))}
     </div>
   )
-}
-
-/** About six evenly spaced date ticks for a time axis, written short: "Oct 25" for a season, "Nov 2025" for a long range. */
-export function timeAxis(min: number, max: number, count = 6) {
-  const span = (max - min) / 86400
-  const ticks = Array.from({ length: count }, (_, i) => Math.round(min + ((max - min) * i) / (count - 1)))
-  const tickFormatter = (t: number) => new Date(t * 1000).toLocaleDateString(undefined, span > 200 ? { month: 'short', year: 'numeric' } : span > 20 ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' })
-  return { ticks, tickFormatter }
 }

@@ -7,7 +7,7 @@ import type { Hero, MapInfo, Stat } from '@/lib/api'
 import { pct } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 
-export const ROLE_STYLE: Record<string, string> = {
+const ROLE_STYLE: Record<string, string> = {
   Vanguard: 'bg-teal-500/15 text-teal-300 ring-teal-400/30',
   Duelist: 'bg-rose-500/15 text-rose-300 ring-rose-400/30',
   Strategist: 'bg-lime-500/15 text-lime-300 ring-lime-400/30',
@@ -38,7 +38,6 @@ export function MapBanner({ map, className }: { map: Pick<MapInfo, 'place' | 'ic
   )
 }
 
-/** Win rate as a bar around 50%: blue to the right when above, orange to the left when below. The thin range is the 95% interval. */
 export function WinBar({ s, width = 120 }: { s: Stat; width?: number }) {
   if (!s.games) return <span className="text-muted-foreground">not played</span>
   const r = s.rate
@@ -65,8 +64,7 @@ export function WinBar({ s, width = 120 }: { s: Stat; width?: number }) {
   )
 }
 
-/** Mastery pips from games played: a light touch of progression, not a score. */
-export const LEVELS = [5, 15, 40, 100, 250]
+const LEVELS = [5, 15, 40, 100, 250]
 export function Mastery({ games }: { games: number }) {
   const lvl = LEVELS.filter((t) => games >= t).length
   const next = LEVELS[lvl]
@@ -127,7 +125,6 @@ export function Spinner({ lines = 6 }: { lines?: number }) {
   return <div className="flex flex-col gap-3">{Array.from({ length: lines }, (_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-muted/50" />)}</div>
 }
 
-/** One row of a range chart: the dot is the observed rate, the line is the 95% interval, the centre mark is 50%. */
 export function RangeRow({ label, s, domain = [0, 1], labelWidth = 110 }: {
   label: ReactNode; s: { rate: number | null; lo: number; hi: number; n: number; enough: boolean }; domain?: [number, number]; labelWidth?: number
 }) {

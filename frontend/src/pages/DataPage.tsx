@@ -1,5 +1,5 @@
 import { ArrowRight, Database, FileJson, Layers, LayoutDashboard } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Panel, Spinner } from '@/components/bits'
 import Layout from '@/components/Layout'
@@ -20,6 +20,8 @@ function Stage({ icon, label, big, lines }: { icon: ReactNode; label: string; bi
 
 const sel = 'h-8 rounded-md border border-input bg-background px-2 text-sm'
 
+const STATUS = '/api/fetch/status'
+
 export default function DataPage() {
   const { data: d, error } = useApi<DataInfo>('data', '')
   const [profile, setProfile] = useState<string | null>(null)
@@ -31,12 +33,12 @@ export default function DataPage() {
   const [err, setErr] = useState('')
   const timer = useRef<number | undefined>(undefined)
 
-  const poll = async () => {
-    const s = await getJson<FetchJob>('/api/fetch/status')
+  const show = useCallback(function apply(s: FetchJob) {
     setJob(s)
-    if (s.state === 'running') timer.current = window.setTimeout(poll, 1000)
-  }
-  useEffect(() => { void poll(); return () => window.clearTimeout(timer.current) }, [])
+    if (s.state === 'running') timer.current = window.setTimeout(() => void getJson<FetchJob>(STATUS).then(apply), 1000)
+  }, [])
+  const poll = () => getJson<FetchJob>(STATUS).then(show)
+  useEffect(() => { void getJson<FetchJob>(STATUS).then(show); return () => window.clearTimeout(timer.current) }, [show])
 
   const start = async () => {
     setErr('')

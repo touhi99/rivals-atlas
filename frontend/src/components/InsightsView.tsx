@@ -14,7 +14,6 @@ const TONE: Record<string, string> = {
   higher: 'bg-sky-500/15 text-sky-300', lower: 'bg-sky-500/15 text-sky-300', similar: 'bg-muted text-muted-foreground',
 }
 
-/** One piece of evidence as a range row: the dot is the win rate, the line is the 95% range, the centre mark is 50%. */
 function Evidence({ r }: { r: InsightRow }) {
   const s = { rate: r.rate, lo: r.lo, hi: r.hi, n: r.n, enough: r.enough }
   const base = r.position != null ? `Game ${r.position >= 5 ? '5+' : r.position}` : (r.hero?.name ?? r.map?.name ?? 'Overall')
@@ -45,10 +44,8 @@ function Note({ o }: { o: Observation }) {
   )
 }
 
-/** The hero an observation is about (an enemy, or the player's own hero), used to put cards about the same hero together. */
 const subject = (o: Observation) => { const r = o.evidence.find((e) => e.enemy ?? e.hero); return r ? (r.enemy ?? r.hero)! : null }
 
-/** One card per hero: observations about the same hero share a card; the rest keep one card each. */
 function groups(list: Observation[]): Observation[][] {
   const by = new Map<string, Observation[]>(), out: Observation[][] = []
   for (const o of list) {
@@ -70,12 +67,11 @@ function Card({ g }: { g: Observation[] }) {
   )
 }
 
-/** What the Coach, Tilt guard, Squad synergy and Matchup advisor found. Each card is the model's sentence with the numbers it rests on, checked by the app. */
 export default function InsightsView() {
-  const [tick, setTick] = useState(0)                      // changing it refetches
-  const [mode, setMode] = useState(0)                      // 0 = ranked and quick play, 2 = ranked, 1 = quick play; each keeps its own saved result
+  const [tick, setTick] = useState(0)
+  const [mode, setMode] = useState(0)
   const { data: s } = useApi<InsightsData>('insights', `mode=${mode}&t=${tick}`)
-  const busy = s?.job.state === 'running'                // one job at a time, whichever scope it is for
+  const busy = s?.job.state === 'running'
   const running = busy && (s.job.mode ?? 0) === mode
   useEffect(() => {
     if (!busy) return
@@ -84,7 +80,7 @@ export default function InsightsView() {
   }, [busy, tick])
 
   const run = async () => { await postJson(`/api/insights/run?mode=${mode}`, {}); setTick((n) => n + 1) }
-  const d = s?.data && { ...s.data, observations: s.data.observations.filter((o) => o.relation !== 'similar') }   // older saved runs may still hold them
+  const d = s?.data && { ...s.data, observations: s.data.observations.filter((o) => o.relation !== 'similar') }
 
   const isDown = (o: Observation) => o.relation === 'below_even' || o.relation === 'below_site' || o.relation === 'lower'
   const down = d ? d.observations.filter(isDown) : []

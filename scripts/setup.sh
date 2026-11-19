@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# One command to install the backend (Python, with uv) and the front end (Node), and build the web app.
-# Run it from anywhere: ./scripts/setup.sh   Afterwards: uv run rivals-atlas serve
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

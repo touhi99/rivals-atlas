@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts'
 import { HeroFace, MapBanner, Panel, WinBar } from '@/components/bits'
-import { AXIS, LOSS, TIP, WIN } from '@/components/charts'
+import { AXIS, LOSS, TIP, WIN } from '@/lib/chart-style'
 import Layout from '@/components/Layout'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'

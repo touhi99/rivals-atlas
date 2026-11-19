@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts'
-import { timeAxis } from '@/components/charts'
+import { timeAxis } from '@/lib/chart-style'
 import ExploreGraph from '@/components/ExploreGraph'
 import { HeroFace, MapBanner, Panel, Spinner, WinBar } from '@/components/bits'
 import Layout from '@/components/Layout'
@@ -82,14 +82,15 @@ export default function ExplorePage() {
   const minParam = Number(params.get('min_n')) || 0
   const minN = minParam || d?.default_min || 15
   const graphQuery = `${specQuery}&rel=${rel}&min_n=${minN}`
-  const [combosOpen, setCombosOpen] = useState<boolean | null>(null)   // null: open only while a teammate filter is on
+  const [combosOpen, setCombosOpen] = useState<boolean | null>(null)
   const [graph, setGraph] = useState<{ key: string; data: GraphData | null }>({ key: '', data: null })
+  const resultGames = d?.result?.games
   useEffect(() => {
-    if (view !== 'graph' || !d?.result) return
+    if (view !== 'graph' || resultGames === undefined) return
     let live = true
     getJson<GraphData>(`/api/map?${graphQuery}`).then((g) => live && setGraph({ key: graphQuery, data: g })).catch(() => live && setGraph({ key: graphQuery, data: null }))
     return () => { live = false }
-  }, [graphQuery, view, d?.result?.games]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [graphQuery, view, resultGames])
 
   const patch = (p: Record<string, string>) => setParams((prev) => {
     const n = new URLSearchParams(prev)
