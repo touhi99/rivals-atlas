@@ -37,6 +37,16 @@ def _wrap(fn: Any, drop: set[str], run: Any) -> Any:
     return w
 
 
+ID_SAMPLE = 5
+
+
+def for_model(f: tools.Finding, ids: int) -> dict[str, Any]:
+    d = f.to_dict()
+    d["match_ids"] = f.match_ids[-ids:] if ids else []
+    d["matches"] = len(f.match_ids)
+    return d
+
+
 class RivalsToolset(Toolset):
     def __init__(
         self,
@@ -62,7 +72,9 @@ class RivalsToolset(Toolset):
                 return json.dumps({"error": str(e)})
             if self.ledger is not None:
                 self.ledger.add_finding(f)
-            return json.dumps(f.to_dict())
+            return json.dumps(
+                for_model(f, ID_SAMPLE if "match_lookup" in self.names else 0), separators=(",", ":")
+            )
 
         return create_tool_from_function(_wrap(tools.TOOLS[name], {"con", "meta"}, run))
 

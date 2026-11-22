@@ -78,7 +78,7 @@ cp .env.example .env     # set RIVALS_ATLAS_LLM and, for Anthropic, ANTHROPIC_AP
 - `ollama:<model>`: a model from the [Ollama library](https://ollama.com/library)
 - `lmstudio:<model>`: a model loaded in [LM Studio](https://lmstudio.ai)
 
-The model writes one read-only query. The rows shown come from the data, and the model's own sentence is marked unchecked. Insights run the model on **Run now** and after each fetch that finds new matches, which uses tokens; with Anthropic the query results are sent to the API.
+The model writes one read-only query. The rows shown come from the data, and the model's own sentence is marked unchecked. Insights run the model only on **Run now**, which uses tokens; with Anthropic the query results are sent to the API.
 
 ## Data
 

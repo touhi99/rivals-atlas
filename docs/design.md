@@ -83,7 +83,11 @@ Reasons behind rules in the code that names alone do not explain. The overall fl
   that hold them are filtered on display.
 - The insights scope (ranked, quick play or both) is enforced by the app, whatever the model chose to look at. Each
   scope has its own saved file; a saved file in an older format reads as missing and the agents must run again.
-- Insights run again after a fetch only once they were run by hand, since the model is optional.
+- Tool results go to the model without their match id lists: a count, plus the 5 most recent ids for agents that have
+  `match_lookup`. The ledger keeps every id for the evidence links. The full lists were 95% or more of each result and are
+  re-sent on every agent step, so one Insights run reached millions of input tokens.
+- Insights run only when asked (Run now or the CLI). A fetch marks saved insights stale instead, since every run calls
+  the model several times and costs tokens.
 - One insights job runs at a time, whatever its scope.
 - The Anthropic generator is created without `temperature`, which that SDK does not take.
 - `rivals_atlas.agents.usage_report` is an optional module outside this repository; the app runs without it.
