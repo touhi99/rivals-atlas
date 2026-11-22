@@ -1,5 +1,7 @@
 # Rivals Atlas
 
+![Rivals Atlas banner](docs/banner.svg)
+
 A hobby project for analysing a player's Marvel Rivals matches. It fetches match history from rivalsmeta.com, shows it in a dashboard with statistics and hero graphs, and answers questions through a knowledge-graph agent.
 
 <p align="center"><img src="docs/demo.gif" width="720" alt="A 25 second tour of the app"></p>
