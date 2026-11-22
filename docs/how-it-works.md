@@ -51,7 +51,7 @@ the matches, and the observations that hold up are shown on the Insights tab.
 
 | Step | What happens | Code |
 |---|---|---|
-| Trigger | **Run now** on the Insights tab or `rivals-atlas insights`; after that, again after each fetch that added matches | `web/insights.py` |
+| Trigger | **Run now** on the Insights tab or `rivals-atlas insights`; a fetch marks saved insights as stale but does not rerun them | `web/insights.py` |
 | Context | The agents are told the most played heroes per mode and how to pick earlier seasons, which they cannot look up | `agents/__init__.py` |
 | Delegate | The Coordinator asks all four; each calls its own tools on the database | `agents/` |
 | Observe | Each agent writes short observations: a sentence, a relation (higher, lower, similar, above 50%, above the site figure) and the tool calls it rests on. It writes no numbers | `agents/observations.py` |

@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from rivals_atlas.agents import insights, llm
+from rivals_atlas.agents import llm
 from rivals_atlas.analysis import explore, ladders, patterns, stats
 from rivals_atlas.core import config, db, names
 from rivals_atlas.core.filters import Filter
@@ -279,8 +279,6 @@ def _run_job(profile: str, mode: int, limit: int | None, pace: str) -> None:
     try:
         res = fetch.run(profile, mode, config.data_dir(), limit, progress=progress, pace=pace)
         JOB.update(state="done", result=res)
-        if res.get("fetched") and insights.load() is not None:
-            insights_routes.start_job()
     except fetch.FetchError as e:
         JOB.update(state="error", error=str(e))
     except Exception as e:  # noqa: BLE001 - last resort so the page never shows a spinner forever

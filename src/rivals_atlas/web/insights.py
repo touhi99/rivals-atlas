@@ -1,4 +1,4 @@
-"""Insights routes: the saved result, a Run button, and the job that runs the agents (also started after a fetch)."""
+"""Insights routes: the saved result, a Run button, and the job that runs the agents when it is pressed."""
 
 from __future__ import annotations
 
